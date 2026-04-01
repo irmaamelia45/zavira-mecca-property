@@ -1,0 +1,10 @@
+{
+  "name": "sistem-pemasaran-perumahan",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix frontend -- --port 5174\" \"php backend/artisan serve\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}

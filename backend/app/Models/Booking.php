@@ -1,0 +1,66 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Booking extends Model
+{
+    use HasFactory;
+
+    protected $table = 'booking';
+    protected $primaryKey = 'id_booking';
+    protected $keyType = 'int';
+
+    protected $fillable = [
+        'id_user',
+        'id_perumahan',
+        'kode_booking',
+        'tanggal_booking',
+        'status_booking',
+        'catatan_user',
+        'pekerjaan',
+        'jenis_pekerjaan',
+        'gaji_bulanan',
+        'catatan_admin',
+        'approved_at',
+        'rejected_at',
+        'canceled_at',
+        'finished_at',
+        'cancel_reason',
+        'cancel_note',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'tanggal_booking' => 'datetime',
+            'gaji_bulanan' => 'integer',
+            'approved_at' => 'datetime',
+            'rejected_at' => 'datetime',
+            'canceled_at' => 'datetime',
+            'finished_at' => 'datetime',
+        ];
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'id_user', 'id_user');
+    }
+
+    public function perumahan()
+    {
+        return $this->belongsTo(Perumahan::class, 'id_perumahan', 'id_perumahan');
+    }
+
+    public function documents()
+    {
+        return $this->hasMany(DocBooking::class, 'id_booking', 'id_booking');
+    }
+
+    public function whatsappLogs()
+    {
+        return $this->hasMany(WhatsappNotifLog::class, 'id_booking', 'id_booking');
+    }
+}
