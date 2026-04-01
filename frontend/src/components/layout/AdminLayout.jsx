@@ -1,15 +1,49 @@
 import React, { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { FaHome, FaBuilding, FaTags, FaClipboardList, FaSignOutAlt, FaBars, FaTimes, FaSearch, FaHandHoldingUsd, FaUserTie } from 'react-icons/fa';
+import { FaHome, FaBuilding, FaTags, FaClipboardList, FaSignOutAlt, FaBars, FaTimes, FaSearch, FaHandHoldingUsd, FaUserTie, FaChevronUp } from 'react-icons/fa';
 import { cn } from '../../lib/utils';
 import logoPt from '../../assets/logo_pt.png';
 import { API_BASE } from '../../utils/promo';
 import { authHeaders, clearAuth, getUserRole, isLoggedIn } from '../../lib/auth';
 
+const MENU_SECTIONS = [
+    {
+        title: 'Dashboard',
+        items: [
+            { name: 'Dashboard', path: '/admin', icon: <FaHome /> },
+        ],
+    },
+    {
+        title: 'Manajemen Pemasaran',
+        items: [
+            { name: 'Perumahan', path: '/admin/properties', icon: <FaBuilding /> },
+            { name: 'Promo', path: '/admin/promos', icon: <FaTags /> },
+            { name: 'Booking', path: '/admin/bookings', icon: <FaClipboardList /> },
+        ],
+    },
+    {
+        title: 'Manajemen Informasi dan Layanan',
+        items: [
+            { name: 'Profil Perusahaan', path: '/admin/company-profile', icon: <FaBuilding /> },
+            { name: 'Kelola KPR', path: '/admin/kpr', icon: <FaHandHoldingUsd /> },
+            { name: 'Template Surat', path: '/admin/templates', icon: <FaClipboardList /> },
+        ],
+    },
+    {
+        title: 'Manajemen Pengguna',
+        items: [
+            { name: 'Akun Internal', path: '/admin/marketing-users', icon: <FaUserTie /> },
+        ],
+    },
+];
+
 export default function AdminLayout() {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const location = useLocation();
     const navigate = useNavigate();
+    const [openSections, setOpenSections] = useState(() => (
+        Object.fromEntries(MENU_SECTIONS.map((section) => [section.title, true]))
+    ));
 
     React.useEffect(() => {
         const role = getUserRole();
@@ -31,21 +65,29 @@ export default function AdminLayout() {
         navigate('/auth/login');
     };
 
-    const menuItems = [
-        { name: 'Dashboard', path: '/admin', icon: <FaHome /> },
-        { name: 'Perumahan', path: '/admin/properties', icon: <FaBuilding /> },
-        { name: 'Promo', path: '/admin/promos', icon: <FaTags /> },
-        { name: 'Booking', path: '/admin/bookings', icon: <FaClipboardList /> },
-        { name: 'Akun Internal', path: '/admin/marketing-users', icon: <FaUserTie /> },
-        { name: 'Template Surat', path: '/admin/templates', icon: <FaClipboardList /> },
-        { name: 'Kelola KPR', path: '/admin/kpr', icon: <FaHandHoldingUsd /> },
-        { name: 'Profil Perusahaan', path: '/admin/company-profile', icon: <FaBuilding /> },
-    ];
-
     const isActive = (path) => {
         if (path === '/admin' && location.pathname === '/admin') return true;
         if (path !== '/admin' && location.pathname.startsWith(path)) return true;
         return false;
+    };
+
+    React.useEffect(() => {
+        const activeSection = MENU_SECTIONS.find((section) => (
+            section.items.some((item) => (
+                item.path === '/admin'
+                    ? location.pathname === '/admin'
+                    : location.pathname.startsWith(item.path)
+            ))
+        ));
+
+        if (!activeSection) return;
+        setOpenSections((prev) => (
+            prev[activeSection.title] ? prev : { ...prev, [activeSection.title]: true }
+        ));
+    }, [location.pathname]);
+
+    const toggleSection = (title) => {
+        setOpenSections((prev) => ({ ...prev, [title]: !prev[title] }));
     };
 
     return (
@@ -86,21 +128,55 @@ export default function AdminLayout() {
                     "fixed top-16 bottom-0 left-0 z-40 w-72 transform transition-transform duration-300 ease-in-out border-r border-[#e7dfd0] bg-[#fbfaf6] lg:static lg:translate-x-0 lg:h-[calc(100vh-4rem)] lg:sticky lg:top-16 flex flex-col",
                     sidebarOpen ? "translate-x-0" : "-translate-x-full"
                 )}>
-                    <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
-                        {menuItems.map((item) => (
-                            <Link
-                                key={item.path}
-                                to={item.path}
-                                className={cn(
-                                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm font-medium border",
-                                    isActive(item.path)
-                                        ? "bg-[#e9efff] text-[#1f3f73] border-[#cfdcf8] shadow-sm"
-                                        : "bg-transparent text-slate-600 border-transparent hover:text-[#1f3f73] hover:bg-[#f1f4fb] hover:border-[#dce5f7]"
+                    <nav className="p-4 pt-5 flex-1 overflow-y-auto space-y-5">
+                        {MENU_SECTIONS.map((section) => (
+                            <div key={section.title}>
+                                {section.title !== 'Dashboard' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleSection(section.title)}
+                                        className="w-full px-2 mb-2 flex items-center justify-between gap-2"
+                                    >
+                                        <p className="w-full text-left text-[15px] font-semibold text-slate-600 tracking-tight leading-6">
+                                            {section.title}
+                                        </p>
+                                        <FaChevronUp
+                                            className={cn(
+                                                "shrink-0 text-[11px] text-slate-400 transition-transform duration-200",
+                                                openSections[section.title] ? "rotate-0" : "rotate-180"
+                                            )}
+                                        />
+                                    </button>
                                 )}
-                            >
-                                <span className={cn("text-base", isActive(item.path) ? "text-[#1f3f73]" : "text-slate-400")}>{item.icon}</span>
-                                {item.name}
-                            </Link>
+                                <div
+                                    className={cn(
+                                        "space-y-0.5 overflow-hidden transition-all duration-200",
+                                        openSections[section.title] ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+                                    )}
+                                >
+                                    {section.items.map((item) => (
+                                        <Link
+                                            key={item.path}
+                                            to={item.path}
+                                            className={cn(
+                                                "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 font-medium border border-transparent",
+                                                isActive(item.path)
+                                                    ? "bg-gradient-to-r from-[#bcc7df] to-[#aebad6] text-[#334155] shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]"
+                                                    : "bg-transparent text-slate-600 hover:text-slate-700 hover:bg-[#ece7dc]"
+                                            )}
+                                        >
+                                            <span className={cn(
+                                                "flex h-5 w-5 shrink-0 items-center justify-center text-[15px]",
+                                                isActive(item.path) ? "text-slate-700" : "text-slate-400 group-hover:text-slate-500"
+                                            )}
+                                            >
+                                                {item.icon}
+                                            </span>
+                                            <span className="text-[15px] leading-5">{item.name}</span>
+                                        </Link>
+                                    ))}
+                                </div>
+                            </div>
                         ))}
                     </nav>
 
