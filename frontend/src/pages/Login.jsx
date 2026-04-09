@@ -4,7 +4,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { API_BASE } from '../utils/promo';
-import { saveAuth } from '../lib/auth';
+import { clearAuth, saveAuth } from '../lib/auth';
 
 export default function Login() {
     const navigate = useNavigate();
@@ -17,6 +17,8 @@ export default function Login() {
     const passwordInputRef = useRef(null);
 
     useEffect(() => {
+        clearAuth();
+
         // Pastikan form login selalu mulai dari kondisi kosong dan tidak memakai nilai default apa pun.
         const clearCredentials = () => {
             setEmail('');
@@ -66,6 +68,7 @@ export default function Login() {
                 navigate(redirectTo);
             }
         } catch (err) {
+            clearAuth();
             setError(err.message || 'Login gagal.');
         } finally {
             setIsLoading(false);

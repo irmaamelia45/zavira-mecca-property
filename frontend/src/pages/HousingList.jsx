@@ -161,7 +161,7 @@ export default function HousingList() {
             <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
                 <div>
                     <h1 className="text-3xl font-serif font-semibold text-[#10214b] mb-2">Daftar Perumahan</h1>
-                    <p className="text-gray-600">Semua data di bawah berasal dari input admin.</p>
+                    <p className="text-gray-600">Cari perumahan favorit yang nyaman bagi keluarga Anda.</p>
                 </div>
             </div>
 

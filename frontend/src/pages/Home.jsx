@@ -376,9 +376,32 @@ export default function Home() {
         }
     ];
 
+    const trustPoints = [
+        {
+            title: 'Lokasi strategis',
+            description: 'Akses mudah ke jalan utama, pusat belanja, dan fasilitas publik.',
+            icon: FiMapPin
+        },
+        {
+            title: 'Legalitas aman',
+            description: 'Dokumen lengkap dan jelas untuk proses transaksi yang lebih tenang.',
+            icon: FiShield
+        },
+        {
+            title: 'Bisa KPR',
+            description: 'Pilihan unit mendukung pengajuan pembiayaan KPR sesuai kebutuhan.',
+            icon: FiFileText
+        },
+        {
+            title: 'Lingkungan nyaman',
+            description: 'Kawasan tertata rapi dengan suasana hunian yang ramah keluarga.',
+            icon: FiHome
+        }
+    ];
+
     return (
         <div className="flex flex-col gap-0 pb-0 scroll-smooth">
-            <section className="relative min-h-[68vh] md:min-h-[580px] lg:min-h-[680px] flex items-center justify-start text-white overflow-hidden py-12 md:py-16 lg:py-20">
+            <section className="relative min-h-[calc(100vh-68px)] sm:min-h-[calc(100vh-72px)] md:min-h-[580px] lg:min-h-[680px] flex items-center justify-start text-white overflow-hidden py-10 md:py-16 lg:py-20">
                 <div className="absolute inset-0 bg-gradient-to-r from-[#10214b]/95 via-[#10214b]/70 to-black/30 z-10" />
 
                 <img
@@ -387,15 +410,15 @@ export default function Home() {
                     className="absolute inset-0 w-full h-full object-cover object-center animate-in fade-in zoom-in duration-1000"
                 />
 
-                <div className="relative z-20 text-left w-full mt-4 md:mt-10 lg:mt-12 px-5 md:px-10 lg:px-16 xl:px-20">
-                    <div className="max-w-4xl flex flex-col items-start">
-                        <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif font-bold leading-[1.2] md:leading-[1.1] text-white animate-in slide-in-from-bottom-8 duration-700 delay-100 drop-shadow-xl mb-4">
+                <div className="relative z-20 text-left w-full px-4 sm:px-5 md:px-10 lg:px-16 xl:px-20">
+                    <div className="w-full max-w-3xl flex flex-col items-start">
+                        <h1 className="text-[2rem] sm:text-4xl md:text-5xl lg:text-6xl font-serif font-bold leading-[1.15] md:leading-[1.1] text-white animate-in slide-in-from-bottom-8 duration-700 delay-100 drop-shadow-xl mb-4">
                             Temukan hunian
                             <span className="block">impianmu</span>
                         </h1>
 
-                        <p className="text-sm md:text-base lg:text-lg text-gray-200 leading-relaxed max-w-xl animate-in slide-in-from-bottom-8 duration-700 delay-200 drop-shadow-lg font-light mb-6 md:mb-8">
-                            Zavira Mecca Property menghadirkan hunian berkualitas, dengan komitmen untuk menghadirkan properti yang nyaman.
+                        <p className="text-sm sm:text-base md:text-base lg:text-lg text-gray-200 leading-relaxed w-full max-w-xl animate-in slide-in-from-bottom-8 duration-700 delay-200 drop-shadow-lg font-light mb-6 md:mb-8">
+                            Hunian modern dengan lokasi strategis, lingkungan nyaman, dan harga terjangkau. Siap huni & cocok untuk masa depan keluarga Anda.
                         </p>
 
                         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto animate-in slide-in-from-bottom-8 duration-700 delay-300">
@@ -418,12 +441,34 @@ export default function Home() {
                 </div>
             </section>
 
-            <section className="bg-[#f4f6f8] py-8">
+            <section className="bg-[#fdfbf6] py-12 md:py-14">
+                <div className="container-custom">
+                    <div className="mx-auto grid max-w-5xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 md:gap-4">
+                        {trustPoints.map((point) => {
+                            const Icon = point.icon;
+                            return (
+                                <div
+                                    key={point.title}
+                                    className="group rounded-2xl border border-primary-100 bg-white px-4 py-5 text-center shadow-[0_8px_20px_-18px_rgba(16,33,75,0.45)] transition-all duration-300 hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_14px_26px_-18px_rgba(16,33,75,0.55)]"
+                                >
+                                    <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-primary-100 bg-primary-50 text-primary-600">
+                                        <Icon className="text-[18px]" strokeWidth={1.9} />
+                                    </div>
+                                    <h3 className="mb-1.5 text-base md:text-lg font-serif font-semibold text-primary-900 leading-tight">{point.title}</h3>
+                                    <p className="text-xs md:text-sm text-slate-600 leading-relaxed">{point.description}</p>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </section>
+
+            <section className="bg-[#fdfbf6] py-8">
                 <div className="container-custom">
                     <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
                         <div>
                             <h2 className="text-3xl md:text-4xl font-serif font-semibold text-[#10214b] mb-3">Kategori Perumahan</h2>
-                            <p className="text-gray-600 text-lg">Pilih kategori favorit Anda, lalu telusuri hunian terbaiknya.</p>
+                            <p className="text-gray-600 text-sm md:text-lg">Pilih kategori favorit Anda, lalu telusuri hunian terbaiknya.</p>
                         </div>
                         <Link to="/perumahan">
                             <Button variant="outline" className="w-full md:w-auto">Lihat Semua Perumahan</Button>
@@ -507,11 +552,6 @@ export default function Home() {
                                     </div>
                                 </div>
 
-                                    <div className="absolute -top-5 -left-4 md:-left-6 rounded-full bg-primary-700 text-white px-4 py-3 shadow-xl ring-4 ring-white">
-                                        <p className="text-xs uppercase tracking-wide text-primary-100">Total Perumahan</p>
-                                        <p className="text-lg font-semibold leading-none">{activeCategoryProperties.length} Perumahan</p>
-                                    </div>
-
                                 {activeCategoryProperties.length > 1 && (
                                     <div className="mt-6 flex items-center justify-center gap-4">
                                             <button
@@ -558,7 +598,7 @@ export default function Home() {
                                     <h3 className="text-3xl md:text-4xl font-serif font-semibold text-[#10214b] leading-tight mb-3">
                                         {asString(currentCategoryProperty?.name, `Pilihan Hunian ${activeCategoryDetail?.title?.replace('Perumahan ', '') || 'Terbaik'}`)}
                                     </h3>
-                                    <p className="text-gray-600 leading-relaxed mb-6">
+                                    <p className="text-gray-600 leading-relaxed mb-6 truncate-2-lines">
                                         {asString(currentCategoryProperty?.description, activeCategoryDetail?.description || 'Temukan properti yang sesuai dengan kebutuhan Anda.')}
                                     </p>
 
@@ -602,7 +642,7 @@ export default function Home() {
                 </div>
             </section>
 
-            <section className="bg-[#f5f7fb] py-8">
+            <section className="bg-[#fdfbf6] py-8">
                 <div className="container-custom">
                     <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
                         <div>
@@ -629,7 +669,7 @@ export default function Home() {
                 </div>
             </section>
 
-            <section className="bg-[#f7f8fb] py-8">
+            <section className="bg-[#fdfbf6] py-8">
                 <div className="border-y border-slate-200 bg-white py-8 md:py-10">
                     <div className="container-custom">
                         <div className="grid xl:grid-cols-[1.15fr_0.85fr] gap-8 xl:gap-10 items-stretch">
@@ -723,7 +763,7 @@ export default function Home() {
                 </div>
             </section>
 
-            <section className="bg-[#f8f9fc] py-8">
+            <section className="bg-[#fdfbf6] py-8">
                 <div className="relative overflow-hidden border-y border-slate-200 bg-white py-7 md:py-10">
                     <div className="container-custom">
                         <div
@@ -819,7 +859,7 @@ export default function Home() {
                 </div>
             </section>
 
-            <section className="bg-secondary-500/15 py-12">
+            <section className="bg-[#fdfbf6] py-12">
                 <div className="container-custom">
                     <div className="rounded-3xl border border-secondary-200 bg-white p-6 md:p-8 lg:p-10 shadow-xl shadow-slate-200/40">
                         <div className="grid lg:grid-cols-[1.2fr_0.8fr] gap-8 lg:gap-10 items-center mb-10">

@@ -29,10 +29,18 @@
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    width: 100%;
+    min-height: 100%;
+  }
+
   body {
     font-family: var(--font-sans);
     color: #10214b;
     background-color: #fdfbf6;
+    overflow-x: hidden;
   }
 
   h1,
@@ -50,6 +58,14 @@
   input[type="password"]::-ms-clear {
     display: none;
   }
+
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+    height: auto;
+  }
 }
 
 @layer components {
@@ -59,6 +75,19 @@
 
   .btn-primary {
     @apply bg-primary-700 text-white hover:bg-primary-800 transition-colors duration-300;
+  }
+
+  .responsive-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .truncate-2-lines {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* Admin visual harmonization: smaller radius + consistent table/card surface. */
@@ -98,5 +127,93 @@
 
   .admin-ui table tbody tr:hover td {
     background: #fcfbf8;
+  }
+
+  @media (max-width: 1023px) {
+    .container-custom {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .container-custom {
+      padding-left: 0.875rem;
+      padding-right: 0.875rem;
+    }
+
+    .responsive-table-wrap {
+      margin-left: -0.75rem;
+      margin-right: -0.75rem;
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+
+    .admin-ui .admin-page {
+      gap: 1.1rem;
+    }
+
+    .admin-ui .admin-page-title {
+      font-size: 1.5rem !important;
+      line-height: 1.2 !important;
+    }
+
+    .admin-ui .admin-page-subtitle {
+      font-size: 0.8rem !important;
+    }
+
+    .admin-ui .admin-page-head {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.75rem;
+    }
+
+    .admin-ui .admin-page-head-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+      width: 100%;
+    }
+
+    .admin-ui .admin-page-head-actions > * {
+      width: 100%;
+    }
+
+    .admin-ui .admin-toolbar,
+    .admin-ui .admin-filter-row {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.6rem;
+    }
+
+    .admin-ui .admin-toolbar > *,
+    .admin-ui .admin-filter-row > * {
+      width: 100%;
+    }
+
+    .admin-ui .admin-chip-group {
+      display: flex;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding-bottom: 0.25rem;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .admin-ui .admin-chip-group > * {
+      flex: 0 0 auto;
+    }
+
+    .admin-ui .admin-table {
+      font-size: 12px;
+    }
+
+    .admin-ui .admin-table thead th,
+    .admin-ui .admin-table tbody td {
+      padding: 0.65rem 0.75rem !important;
+      white-space: nowrap;
+    }
   }
 }

@@ -1,18 +1,53 @@
 const stripTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, '');
 const ensureLeadingSlash = (value = '') => (String(value || '').startsWith('/') ? String(value || '') : `/${String(value || '')}`);
+const parseApiMessage = async (response) => {
+    try {
+        const body = await response.clone().json();
+        return typeof body?.message === 'string' ? body.message.trim() : '';
+    } catch {
+        return '';
+    }
+};
+
+const isGenericNotFoundMessage = (message = '') => {
+    const normalized = String(message || '').trim().toLowerCase();
+    if (!normalized) return true;
+    if (normalized === 'not found' || normalized === 'not found.') return true;
+    if (normalized.startsWith('the route ') && normalized.includes(' could not be found')) return true;
+    return false;
+};
+
+const createRequestError = (message, stopFallback = false) => {
+    const error = new Error(message);
+    if (stopFallback) {
+        error.stopFallback = true;
+    }
+    return error;
+};
 
 export const getApiBaseCandidates = () => {
     const envBase = stripTrailingSlash(import.meta.env.VITE_API_URL || '');
     const defaultBase = 'http://127.0.0.1:8000';
     const origin = typeof window !== 'undefined' ? stripTrailingSlash(window.location.origin) : '';
+    const originHostBase = (() => {
+        if (!origin) return '';
+        try {
+            const parsed = new URL(origin);
+            const isViteDevPort = parsed.port === '5173' || parsed.port === '5174' || parsed.port === '4173';
+            const withPort = parsed.port && !isViteDevPort ? `:${parsed.port}` : '';
+            return `${parsed.protocol}//${parsed.hostname}${withPort}`;
+        } catch {
+            return origin;
+        }
+    })();
 
     const candidates = [
         envBase,
         defaultBase,
-        origin,
-        origin ? `${origin}/backend/public` : '',
-        origin ? `${origin}/sistem-pemasaran-perumahan/backend/public` : '',
-        origin ? `${origin}/zavira-mecca-property/sistem-pemasaran-perumahan/backend/public` : '',
+        originHostBase,
+        originHostBase ? `${originHostBase}/backend/public` : '',
+        originHostBase ? `${originHostBase}/sistem-pemasaran-perumahan/backend/public` : '',
+        originHostBase ? `${originHostBase}/zavira-mecca-property/sistem-pemasaran-perumahan/backend/public` : '',
     ].filter(Boolean);
 
     return Array.from(new Set(candidates));
@@ -55,25 +90,29 @@ export const fetchJsonWithFallback = async (path, options = {}) => {
         try {
             const response = await fetch(url, options);
             if (!response.ok) {
+                const apiMessage = await parseApiMessage(response);
+
                 // Try another base URL when endpoint is not found on current base.
                 if (response.status === 404) {
-                    lastError = new Error(`Endpoint tidak ditemukan di ${url}`);
+                    // Stop fallback when backend returns a domain-specific 404 message
+                    // (for example: "Akun Admin Perumahan tidak ditemukan.").
+                    if (!isGenericNotFoundMessage(apiMessage)) {
+                        throw createRequestError(apiMessage, true);
+                    }
+
+                    lastError = createRequestError(`Endpoint tidak ditemukan di ${url}`);
                     continue;
                 }
 
                 const fallbackMessage = `Gagal memuat data (${response.status}).`;
-                let apiMessage = '';
-                try {
-                    const body = await response.json();
-                    apiMessage = body?.message || '';
-                } catch {
-                    // Ignore JSON parse errors and use fallback message.
-                }
-                throw new Error(apiMessage || fallbackMessage);
+                throw createRequestError(apiMessage || fallbackMessage, true);
             }
 
             return await response.json();
         } catch (error) {
+            if (error?.stopFallback) {
+                throw error;
+            }
             lastError = error;
         }
     }

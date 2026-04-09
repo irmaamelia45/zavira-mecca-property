@@ -19,6 +19,7 @@ Route::get('/company-profile', [CompanyProfileController::class, 'show']);
 
 Route::get('/perumahan', [PerumahanController::class, 'indexPublic']);
 Route::get('/perumahan/{id}', [PerumahanController::class, 'showPublic']);
+Route::get('/perumahan/{id}/units', [PerumahanController::class, 'unitAvailability']);
 
 Route::get('/promos', [PromoController::class, 'index']);
 Route::get('/promos/{id}', [PromoController::class, 'show']);
@@ -77,6 +78,7 @@ Route::middleware('auth.token')->group(function () {
     Route::middleware('role:superadmin')->group(function () {
         Route::get('/admin/users/admins', [AdminUserController::class, 'indexAdmins']);
         Route::post('/admin/users/admins', [AdminUserController::class, 'storeAdmin']);
+        Route::patch('/admin/users/admins/{id}/status', [AdminUserController::class, 'updateAdminStatus']);
         Route::delete('/admin/users/admins/{id}', [AdminUserController::class, 'destroyAdmin']);
     });
 });

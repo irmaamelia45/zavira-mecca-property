@@ -226,13 +226,13 @@ export default function CompanyProfileManagement() {
     ];
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex justify-between items-center">
+        <div className="admin-page space-y-6 animate-in fade-in duration-500">
+            <div className="admin-page-head flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Profil Perusahaan</h1>
-                    <p className="text-gray-500 text-sm">Kelola informasi profil, visi misi, dan struktur organisasi.</p>
+                    <h1 className="admin-page-title text-2xl font-bold text-gray-900">Profil Perusahaan</h1>
+                    <p className="admin-page-subtitle text-gray-500 text-sm">Kelola informasi profil, visi misi, dan struktur organisasi.</p>
                 </div>
-                <Button onClick={handleSave} className="bg-primary-600 text-white" disabled={isSaving}>
+                <Button onClick={handleSave} className="bg-primary-600 text-white w-full sm:w-auto" disabled={isSaving}>
                     <FaSave className="mr-2" /> {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
                 </Button>
             </div>
@@ -363,9 +363,9 @@ export default function CompanyProfileManagement() {
                 {activeTab === 'awards' && (
                     <Card className="border-gray-200 shadow-sm">
                         <CardContent className="p-6 space-y-4">
-                            <div className="flex justify-between items-center border-b pb-2">
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b pb-2">
                                 <h3 className="text-lg font-bold text-gray-800">Daftar Penghargaan</h3>
-                                <Button size="sm" variant="outline" onClick={addAward}><FaPlus className="mr-1" /> Tambah</Button>
+                                <Button size="sm" variant="outline" onClick={addAward} className="w-full sm:w-auto"><FaPlus className="mr-1" /> Tambah</Button>
                             </div>
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                 {awards.map((award) => (
@@ -445,9 +445,9 @@ export default function CompanyProfileManagement() {
                 {activeTab === 'team' && (
                     <Card className="border-gray-200 shadow-sm">
                         <CardContent className="p-6 space-y-4">
-                            <div className="flex justify-between items-center border-b pb-2">
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b pb-2">
                                 <h3 className="text-lg font-bold text-gray-800">Struktur Organisasi</h3>
-                                <Button size="sm" variant="outline" onClick={addTeamMember}><FaPlus className="mr-1" /> Tambah</Button>
+                                <Button size="sm" variant="outline" onClick={addTeamMember} className="w-full sm:w-auto"><FaPlus className="mr-1" /> Tambah</Button>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                                 {team.map((member) => (

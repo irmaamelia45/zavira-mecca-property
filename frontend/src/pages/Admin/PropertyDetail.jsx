@@ -182,16 +182,16 @@ export default function PropertyDetail() {
     const activeBookings = propertyBookings.filter((item) => ACTIVE_BOOKING_STATUSES.includes(item.status));
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between gap-3">
-                <Button variant="ghost" onClick={() => navigate('/admin/properties')} className="px-2">
+        <div className="admin-page space-y-6 animate-in fade-in duration-500">
+            <div className="admin-page-head flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <Button variant="ghost" onClick={() => navigate('/admin/properties')} className="px-2 w-full sm:w-auto">
                     <FaArrowLeft className="mr-2" /> Kembali
                 </Button>
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={() => navigate(`/admin/properties/edit/${property.id}`)}>
+                <div className="admin-page-head-actions flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                    <Button variant="outline" onClick={() => navigate(`/admin/properties/edit/${property.id}`)} className="w-full sm:w-auto">
                         <FaEdit className="mr-2" /> Edit Perumahan
                     </Button>
-                    <Button variant="danger" onClick={handleDelete} disabled={deleting}>
+                    <Button variant="danger" onClick={handleDelete} disabled={deleting} className="w-full sm:w-auto">
                         <FaTrash className="mr-2" /> {deleting ? 'Menghapus...' : 'Hapus Perumahan'}
                     </Button>
                 </div>
@@ -415,8 +415,8 @@ export default function PropertyDetail() {
                             <FaClipboardList className="text-primary-600" /> Booking Aktif Pada Perumahan Ini
                         </h3>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-[13px] text-left min-w-[860px]">
+                    <div className="overflow-x-auto responsive-table-wrap">
+                        <table className="admin-table w-full text-[13px] text-left min-w-[860px]">
                             <thead className="bg-[#f8fafc] text-gray-500 font-semibold uppercase text-[10px] tracking-[0.06em]">
                                 <tr>
                                     <th className="px-6 py-4">Kode Booking</th>

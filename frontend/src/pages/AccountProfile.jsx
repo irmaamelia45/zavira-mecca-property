@@ -6,6 +6,7 @@ import Button from '../components/ui/Button';
 import { FiArrowLeft } from 'react-icons/fi';
 import { API_BASE } from '../utils/promo';
 import { authHeaders, getStoredUser, saveAuth } from '../lib/auth';
+import { normalizePhone62 } from '../lib/phone';
 
 const initialProfile = {
     nama: '',
@@ -33,7 +34,7 @@ export default function AccountProfile() {
             setProfile({
                 nama: localUser.nama || '',
                 email: localUser.email || '',
-                no_hp: localUser.no_hp || '',
+                no_hp: normalizePhone62(localUser.no_hp || ''),
                 alamat: localUser.alamat || '',
             });
         }
@@ -51,7 +52,7 @@ export default function AccountProfile() {
                     setProfile({
                         nama: data.user.nama || '',
                         email: data.user.email || '',
-                        no_hp: data.user.no_hp || '',
+                        no_hp: normalizePhone62(data.user.no_hp || ''),
                         alamat: data.user.alamat || '',
                     });
                     saveAuth({ token: undefined, user: data.user });
@@ -78,7 +79,10 @@ export default function AccountProfile() {
                 headers: authHeaders({
                     'Content-Type': 'application/json',
                 }),
-                body: JSON.stringify(profile),
+                body: JSON.stringify({
+                    ...profile,
+                    no_hp: normalizePhone62(profile.no_hp),
+                }),
             });
 
             const data = await response.json().catch(() => ({}));
@@ -165,8 +169,9 @@ export default function AccountProfile() {
                         />
                         <Input
                             label="No. WhatsApp"
+                            placeholder="628xxxxxxxxxx"
                             value={profile.no_hp}
-                            onChange={(e) => setProfile((prev) => ({ ...prev, no_hp: e.target.value }))}
+                            onChange={(e) => setProfile((prev) => ({ ...prev, no_hp: normalizePhone62(e.target.value) }))}
                             required
                         />
                         <Input

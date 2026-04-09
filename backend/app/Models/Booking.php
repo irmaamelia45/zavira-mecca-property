@@ -16,6 +16,7 @@ class Booking extends Model
     protected $fillable = [
         'id_user',
         'id_perumahan',
+        'id_unit_perumahan',
         'kode_booking',
         'tanggal_booking',
         'status_booking',
@@ -52,6 +53,11 @@ class Booking extends Model
     public function perumahan()
     {
         return $this->belongsTo(Perumahan::class, 'id_perumahan', 'id_perumahan');
+    }
+
+    public function unitPerumahan()
+    {
+        return $this->belongsTo(PerumahanUnit::class, 'id_unit_perumahan', 'id_unit_perumahan');
     }
 
     public function documents()

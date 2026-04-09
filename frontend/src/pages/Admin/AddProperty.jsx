@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaArrowLeft, FaSave, FaTimes, FaImage } from 'react-icons/fa';
+import { FaArrowLeft, FaPlus, FaSave, FaTimes, FaTrashAlt, FaImage } from 'react-icons/fa';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -38,6 +38,16 @@ export default function AddProperty() {
     const [withPromo, setWithPromo] = useState(false);
     const [promoForm, setPromoForm] = useState(emptyPromoForm);
 
+    const extractApiError = (data, fallback) => {
+        if (data?.errors && typeof data.errors === 'object') {
+            const firstError = Object.values(data.errors).flat().find(Boolean);
+            if (firstError) return String(firstError);
+        }
+
+        if (data?.message) return String(data.message);
+        return fallback;
+    };
+
     const parseCurrencyInput = (value) => String(value || '').replace(/\D/g, '');
     const formatCurrencyInput = (value) => {
         const digitsOnly = parseCurrencyInput(value);
@@ -48,6 +58,41 @@ export default function AddProperty() {
     const setField = (name, value) => {
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
+
+    const updateBlock = (index, key, value) => {
+        setFormData((prev) => ({
+            ...prev,
+            unitBlocks: (prev.unitBlocks || []).map((item, itemIndex) => (
+                itemIndex === index ? { ...item, [key]: value } : item
+            )),
+        }));
+    };
+
+    const addBlockRow = () => {
+        const nextIndex = (formData.unitBlocks || []).length;
+        setFormData((prev) => ({
+            ...prev,
+            unitBlocks: [
+                ...(prev.unitBlocks || []),
+                { blockName: `Blok ${String.fromCharCode(65 + Math.min(nextIndex, 25))}`, unitCount: 1 },
+            ],
+        }));
+    };
+
+    const removeBlockRow = (index) => {
+        setFormData((prev) => {
+            const nextBlocks = (prev.unitBlocks || []).filter((_, itemIndex) => itemIndex !== index);
+            return {
+                ...prev,
+                unitBlocks: nextBlocks.length ? nextBlocks : [{ blockName: 'Blok A', unitCount: 1 }],
+            };
+        });
+    };
+
+    const totalUnitsFromBlocks = (formData.unitBlocks || []).reduce(
+        (total, item) => total + (Number(item?.unitCount) || 0),
+        0
+    );
 
     const handlePriceChange = (event) => {
         setField('price', parseCurrencyInput(event.target.value));
@@ -90,8 +135,12 @@ export default function AddProperty() {
     const validate = () => {
         if (!formData.name.trim()) return 'Nama perumahan wajib diisi.';
         if (!formData.price) return 'Harga wajib diisi.';
-        if (!formData.totalUnits) return 'Jumlah seluruh unit wajib diisi.';
-        if (!formData.availableUnits) return 'Jumlah unit tersedia wajib diisi.';
+        if (!(formData.unitBlocks || []).length) return 'Minimal satu blok unit wajib diisi.';
+        const hasInvalidBlock = (formData.unitBlocks || []).some((item) => (
+            !String(item?.blockName || '').trim() || Number(item?.unitCount) < 1
+        ));
+        if (hasInvalidBlock) return 'Nama blok dan jumlah unit per blok harus valid.';
+        if (totalUnitsFromBlocks < 1) return 'Jumlah unit minimal 1.';
         if (!formData.marketingName.trim()) return 'Nama marketing wajib diisi.';
         if (!isValidWhatsapp62(formData.marketingWhatsapp)) return 'Nomor WhatsApp harus diawali 62 dan hanya angka.';
         if (withPromo) {
@@ -140,7 +189,12 @@ export default function AddProperty() {
         setIsLoading(true);
         setFormError('');
         try {
-            const payload = appendPropertyFormData(formData, imageSlots);
+            const payloadFormData = {
+                ...formData,
+                totalUnits: totalUnitsFromBlocks,
+                availableUnits: totalUnitsFromBlocks,
+            };
+            const payload = appendPropertyFormData(payloadFormData, imageSlots);
             const response = await fetch(`${API_BASE}/api/admin/perumahan`, {
                 method: 'POST',
                 headers: authHeaders(),
@@ -149,7 +203,7 @@ export default function AddProperty() {
 
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                throw new Error(data?.message || 'Gagal menyimpan perumahan.');
+                throw new Error(extractApiError(data, 'Gagal menyimpan perumahan.'));
             }
 
             if (withPromo) {
@@ -179,20 +233,20 @@ export default function AddProperty() {
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" onClick={() => navigate('/admin/properties')} className="p-2">
+        <div className="admin-page space-y-6 animate-in fade-in duration-500">
+            <div className="admin-page-head flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+                    <Button variant="ghost" onClick={() => navigate('/admin/properties')} className="p-2 shrink-0">
                         <FaArrowLeft />
                     </Button>
                     <div>
-                        <h1 className="text-2xl font-bold text-primary-900">Tambah Perumahan Baru</h1>
-                        <p className="text-gray-500 text-sm">Maksimal 4 foto. Data akan tampil di halaman user.</p>
+                        <h1 className="admin-page-title text-2xl font-bold text-primary-900">Tambah Perumahan Baru</h1>
+                        <p className="admin-page-subtitle text-gray-500 text-sm">Maksimal 4 foto. Data akan tampil di halaman user.</p>
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => navigate('/admin/properties')}>Batal</Button>
-                    <Button onClick={handleSubmit} disabled={isLoading} className="bg-primary-600 hover:bg-primary-700 text-white">
+                <div className="admin-page-head-actions flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                    <Button variant="outline" onClick={() => navigate('/admin/properties')} className="w-full sm:w-auto">Batal</Button>
+                    <Button onClick={handleSubmit} disabled={isLoading} className="bg-primary-600 hover:bg-primary-700 text-white w-full sm:w-auto">
                         {isLoading ? 'Menyimpan...' : <><FaSave className="mr-2" /> Simpan Data</>}
                     </Button>
                 </div>
@@ -257,15 +311,62 @@ export default function AddProperty() {
                     <Card className="border-none shadow-md">
                         <CardContent className="p-6 space-y-4">
                             <h3 className="text-lg font-bold text-gray-800 border-b pb-2">Spesifikasi</h3>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                                 <Input label="Luas Tanah (m2)" type="number" value={formData.landArea} onChange={(e) => setField('landArea', e.target.value)} />
                                 <Input label="Luas Bangunan (m2)" type="number" value={formData.buildingArea} onChange={(e) => setField('buildingArea', e.target.value)} />
                                 <Input label="Kamar Tidur" type="number" value={formData.bedrooms} onChange={(e) => setField('bedrooms', e.target.value)} />
                                 <Input label="Kamar Mandi" type="number" value={formData.bathrooms} onChange={(e) => setField('bathrooms', e.target.value)} />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input label="Total Unit" type="number" value={formData.totalUnits} onChange={(e) => setField('totalUnits', e.target.value)} required />
-                                <Input label="Unit Tersedia" type="number" value={formData.availableUnits} onChange={(e) => setField('availableUnits', e.target.value)} required />
+                            <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-gray-800">Konfigurasi Blok & Unit</h4>
+                                        <p className="text-xs text-gray-500">Contoh: Blok A (6 unit) akan menjadi A1 sampai A6.</p>
+                                    </div>
+                                    <Button type="button" variant="outline" className="h-8 px-3 text-xs" onClick={addBlockRow}>
+                                        <FaPlus className="mr-1" /> Tambah Blok
+                                    </Button>
+                                </div>
+                                <div className="space-y-2">
+                                    {(formData.unitBlocks || []).map((block, index) => (
+                                        <div key={`block-${index}`} className="grid grid-cols-1 md:grid-cols-[1fr_170px_auto] gap-2 items-end rounded-md border border-gray-200 bg-white p-3">
+                                            <Input
+                                                label={`Nama Blok ${index + 1}`}
+                                                placeholder="Contoh: Blok A"
+                                                value={block.blockName || ''}
+                                                onChange={(event) => updateBlock(index, 'blockName', event.target.value)}
+                                                required
+                                            />
+                                            <Input
+                                                label="Jumlah Unit"
+                                                type="number"
+                                                min="1"
+                                                value={block.unitCount ?? 1}
+                                                onChange={(event) => updateBlock(index, 'unitCount', event.target.value)}
+                                                required
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                className="h-11 px-3 text-red-600 border-red-200 hover:bg-red-50"
+                                                onClick={() => removeBlockRow(index)}
+                                                disabled={(formData.unitBlocks || []).length === 1}
+                                            >
+                                                <FaTrashAlt />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="rounded-md border border-gray-200 bg-white px-3 py-2">
+                                        <p className="text-xs text-gray-500">Total Unit (otomatis)</p>
+                                        <p className="text-lg font-bold text-gray-900">{totalUnitsFromBlocks}</p>
+                                    </div>
+                                    <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">
+                                        <p className="text-xs text-emerald-700">Unit Tersedia Awal</p>
+                                        <p className="text-lg font-bold text-emerald-800">{totalUnitsFromBlocks}</p>
+                                    </div>
+                                </div>
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-gray-700">Fasilitas</label>
@@ -418,7 +519,7 @@ export default function AddProperty() {
                     <Card className="border-none shadow-md">
                         <CardContent className="p-6 space-y-4">
                             <h3 className="text-lg font-bold text-gray-800 border-b pb-2">Foto Perumahan (Maks 4)</h3>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {imageSlots.map((slot, index) => (
                                     <div key={slot.index} className="rounded-lg border border-dashed border-gray-300 p-2 bg-gray-50">
                                         <input

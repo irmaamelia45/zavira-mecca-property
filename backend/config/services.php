@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'fonnte' => [
+        'base_url' => env('FONNTE_BASE_URL', 'https://api.fonnte.com'),
+        'token' => env('FONNTE_TOKEN'),
+        'timeout' => (int) env('FONNTE_TIMEOUT', 20),
+        'connect_only' => (bool) env('FONNTE_CONNECT_ONLY', true),
+    ],
+
 ];

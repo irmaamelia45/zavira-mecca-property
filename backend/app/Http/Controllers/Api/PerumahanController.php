@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Perumahan;
 use App\Models\PerumahanMedia;
+use App\Models\PerumahanUnit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class PerumahanController extends Controller
 {
@@ -40,14 +42,55 @@ class PerumahanController extends Controller
     {
         $item = Perumahan::query()
             ->where('status_aktif', true)
-            ->with(['media' => fn ($q) => $q->orderBy('urutan')])
+            ->with([
+                'media' => fn ($q) => $q->orderBy('urutan'),
+                'units' => fn ($q) => $q
+                    ->orderBy('kode_blok')
+                    ->orderBy('nomor_unit'),
+            ])
             ->find($id);
 
         if (! $item) {
             return response()->json(['message' => 'Perumahan tidak ditemukan.'], 404);
         }
 
-        return response()->json($this->transformForUser($item));
+        $this->ensureDefaultUnits($item);
+        $item->loadMissing([
+            'units' => fn ($q) => $q
+                ->orderBy('kode_blok')
+                ->orderBy('nomor_unit'),
+        ]);
+
+        return response()->json($this->transformForUser($item, true));
+    }
+
+    public function unitAvailability($id)
+    {
+        $item = Perumahan::query()
+            ->where('status_aktif', true)
+            ->with([
+                'units' => fn ($q) => $q
+                    ->orderBy('kode_blok')
+                    ->orderBy('nomor_unit'),
+            ])
+            ->find($id);
+
+        if (! $item) {
+            return response()->json(['message' => 'Perumahan tidak ditemukan.'], 404);
+        }
+
+        $this->ensureDefaultUnits($item);
+        $item->loadMissing([
+            'units' => fn ($q) => $q
+                ->orderBy('kode_blok')
+                ->orderBy('nomor_unit'),
+        ]);
+
+        return response()->json([
+            'propertyId' => $item->id_perumahan,
+            'unitBlocks' => $this->buildUnitBlocks($item),
+            'updatedAt' => now()->toDateTimeString(),
+        ]);
     }
 
     public function optionsAdmin()
@@ -75,14 +118,26 @@ class PerumahanController extends Controller
     public function showAdmin($id)
     {
         $item = Perumahan::query()
-            ->with(['media' => fn ($q) => $q->orderBy('urutan')])
+            ->with([
+                'media' => fn ($q) => $q->orderBy('urutan'),
+                'units' => fn ($q) => $q
+                    ->orderBy('kode_blok')
+                    ->orderBy('nomor_unit'),
+            ])
             ->find($id);
 
         if (! $item) {
             return response()->json(['message' => 'Perumahan tidak ditemukan.'], 404);
         }
 
-        return response()->json($this->transformForAdmin($item));
+        $this->ensureDefaultUnits($item);
+        $item->loadMissing([
+            'units' => fn ($q) => $q
+                ->orderBy('kode_blok')
+                ->orderBy('nomor_unit'),
+        ]);
+
+        return response()->json($this->transformForAdmin($item, true));
     }
 
     public function store(Request $request)
@@ -90,15 +145,29 @@ class PerumahanController extends Controller
         $validated = $this->validatePayload($request);
 
         $property = DB::transaction(function () use ($request, $validated) {
-            $property = Perumahan::create($this->preparePayload($validated));
-            $this->syncMedia($property, $request);
+            $blockConfig = $this->resolveBlockConfig($validated, null);
+            $totalUnits = $this->countUnitsFromBlocks($blockConfig);
 
-            return $property->fresh(['media' => fn ($q) => $q->orderBy('urutan')]);
+            $payload = $validated;
+            $payload['jumlah_seluruh_unit'] = $totalUnits;
+            $payload['jumlah_unit_tersedia'] = $totalUnits;
+
+            $property = Perumahan::create($this->preparePayload($payload));
+            $this->syncMedia($property, $request);
+            $this->syncUnits($property, $blockConfig);
+            $this->refreshUnitCounters($property);
+
+            return $property->fresh([
+                'media' => fn ($q) => $q->orderBy('urutan'),
+                'units' => fn ($q) => $q
+                    ->orderBy('kode_blok')
+                    ->orderBy('nomor_unit'),
+            ]);
         });
 
         return response()->json([
             'message' => 'Perumahan berhasil ditambahkan.',
-            'property' => $this->transformForAdmin($property),
+            'property' => $this->transformForAdmin($property, true),
         ], 201);
     }
 
@@ -112,15 +181,33 @@ class PerumahanController extends Controller
         $validated = $this->validatePayload($request);
 
         $property = DB::transaction(function () use ($request, $validated, $property) {
-            $property->update($this->preparePayload($validated));
-            $this->syncMedia($property, $request);
+            $property->loadMissing([
+                'units' => fn ($q) => $q
+                    ->orderBy('kode_blok')
+                    ->orderBy('nomor_unit'),
+            ]);
 
-            return $property->fresh(['media' => fn ($q) => $q->orderBy('urutan')]);
+            $blockConfig = $this->resolveBlockConfig($validated, $property);
+            $payload = $validated;
+            $payload['jumlah_seluruh_unit'] = $this->countUnitsFromBlocks($blockConfig);
+            $payload['jumlah_unit_tersedia'] = (int) $property->jumlah_unit_tersedia;
+
+            $property->update($this->preparePayload($payload));
+            $this->syncMedia($property, $request);
+            $this->syncUnits($property, $blockConfig);
+            $this->refreshUnitCounters($property);
+
+            return $property->fresh([
+                'media' => fn ($q) => $q->orderBy('urutan'),
+                'units' => fn ($q) => $q
+                    ->orderBy('kode_blok')
+                    ->orderBy('nomor_unit'),
+            ]);
         });
 
         return response()->json([
             'message' => 'Perumahan berhasil diperbarui.',
-            'property' => $this->transformForAdmin($property),
+            'property' => $this->transformForAdmin($property, true),
         ]);
     }
 
@@ -159,6 +246,7 @@ class PerumahanController extends Controller
             'nama_marketing' => 'required|string|max:120',
             'whatsapp_marketing' => 'required|string|regex:/^62[0-9]+$/|max:25',
             'status_aktif' => 'nullable|boolean',
+            'block_payload' => 'nullable|string',
             'media_payload' => 'nullable|string',
             'photos' => 'nullable|array|max:4',
             'photos.*' => 'nullable|image|max:5120',
@@ -288,6 +376,230 @@ class PerumahanController extends Controller
         return empty($filtered) ? null : json_encode($filtered);
     }
 
+    private function resolveBlockConfig(array $validated, ?Perumahan $property): array
+    {
+        $payload = $this->decodeBlockPayload($validated['block_payload'] ?? null);
+        if (! empty($payload)) {
+            return $payload;
+        }
+
+        if ($property && $property->relationLoaded('units') && $property->units->isNotEmpty()) {
+            return $property->units
+                ->groupBy('kode_blok')
+                ->values()
+                ->map(function ($group) {
+                    $first = $group->first();
+                    return [
+                        'block_name' => $first->nama_blok,
+                        'block_code' => $first->kode_blok,
+                        'unit_count' => $group->count(),
+                    ];
+                })
+                ->values()
+                ->all();
+        }
+
+        $fallbackTotal = max(1, (int) ($validated['jumlah_seluruh_unit'] ?? 1));
+
+        return [[
+            'block_name' => 'Blok A',
+            'block_code' => 'A',
+            'unit_count' => $fallbackTotal,
+        ]];
+    }
+
+    private function decodeBlockPayload(?string $raw): array
+    {
+        if (! is_string($raw) || trim($raw) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+        if (! is_array($decoded)) {
+            throw ValidationException::withMessages([
+                'block_payload' => ['Format blok unit tidak valid.'],
+            ]);
+        }
+
+        $blocks = [];
+        $usedCodes = [];
+
+        foreach ($decoded as $index => $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $blockName = trim((string) ($item['blockName'] ?? $item['block_name'] ?? ''));
+            $unitCount = (int) ($item['unitCount'] ?? $item['unit_count'] ?? 0);
+
+            if ($blockName === '' || $unitCount < 1) {
+                continue;
+            }
+
+            $blockCode = $this->normalizeBlockCode($blockName, $index);
+            if (isset($usedCodes[$blockCode])) {
+                throw ValidationException::withMessages([
+                    'block_payload' => ["Kode blok duplikat terdeteksi: {$blockCode}. Gunakan nama blok yang berbeda."],
+                ]);
+            }
+
+            $usedCodes[$blockCode] = true;
+            $blocks[] = [
+                'block_name' => $blockName,
+                'block_code' => $blockCode,
+                'unit_count' => $unitCount,
+            ];
+        }
+
+        if (empty($blocks)) {
+            throw ValidationException::withMessages([
+                'block_payload' => ['Minimal satu blok dengan jumlah unit valid wajib diisi.'],
+            ]);
+        }
+
+        return $blocks;
+    }
+
+    private function normalizeBlockCode(string $blockName, int $index): string
+    {
+        $upper = strtoupper(trim($blockName));
+        $upper = preg_replace('/^BLOK\s*/', '', $upper) ?? '';
+        $upper = preg_replace('/[^A-Z0-9]/', '', $upper) ?? '';
+
+        if ($upper === '') {
+            return 'B'.($index + 1);
+        }
+
+        return $upper;
+    }
+
+    private function countUnitsFromBlocks(array $blocks): int
+    {
+        return array_reduce($blocks, function ($carry, $block) {
+            return $carry + (int) ($block['unit_count'] ?? 0);
+        }, 0);
+    }
+
+    private function syncUnits(Perumahan $property, array $blocks): void
+    {
+        $desiredUnits = [];
+        foreach ($blocks as $block) {
+            $blockName = $block['block_name'];
+            $blockCode = $block['block_code'];
+            $unitCount = (int) $block['unit_count'];
+
+            for ($i = 1; $i <= $unitCount; $i++) {
+                $code = "{$blockCode}{$i}";
+                $desiredUnits[$code] = [
+                    'id_perumahan' => $property->id_perumahan,
+                    'nama_blok' => $blockName,
+                    'kode_blok' => $blockCode,
+                    'nomor_unit' => $i,
+                    'kode_unit' => $code,
+                ];
+            }
+        }
+
+        $existingUnits = PerumahanUnit::query()
+            ->where('id_perumahan', $property->id_perumahan)
+            ->get()
+            ->keyBy('kode_unit');
+
+        $lockedUnits = [];
+        foreach ($existingUnits as $existingCode => $existingUnit) {
+            if (isset($desiredUnits[$existingCode])) {
+                continue;
+            }
+
+            if ($existingUnit->status_unit !== 'available') {
+                $lockedUnits[] = $existingCode;
+            }
+        }
+
+        if (! empty($lockedUnits)) {
+            throw ValidationException::withMessages([
+                'block_payload' => [
+                    'Perubahan blok tidak bisa disimpan karena unit berikut sedang diproses/terjual: '.implode(', ', $lockedUnits),
+                ],
+            ]);
+        }
+
+        foreach ($desiredUnits as $unitCode => $payload) {
+            $existing = $existingUnits->get($unitCode);
+            if ($existing) {
+                $existing->update([
+                    'nama_blok' => $payload['nama_blok'],
+                    'kode_blok' => $payload['kode_blok'],
+                    'nomor_unit' => $payload['nomor_unit'],
+                ]);
+                continue;
+            }
+
+            PerumahanUnit::create([
+                ...$payload,
+                'status_unit' => 'available',
+                'id_booking_terakhir' => null,
+            ]);
+        }
+
+        if ($existingUnits->isNotEmpty()) {
+            PerumahanUnit::query()
+                ->where('id_perumahan', $property->id_perumahan)
+                ->whereNotIn('kode_unit', array_keys($desiredUnits))
+                ->delete();
+        }
+    }
+
+    private function ensureDefaultUnits(Perumahan $property): void
+    {
+        if ($property->relationLoaded('units') && $property->units->isNotEmpty()) {
+            return;
+        }
+
+        if (! $property->relationLoaded('units') && $property->units()->exists()) {
+            return;
+        }
+
+        $totalUnits = (int) $property->jumlah_seluruh_unit;
+        if ($totalUnits <= 0) {
+            return;
+        }
+
+        $availableUnits = max(0, min((int) $property->jumlah_unit_tersedia, $totalUnits));
+
+        $units = [];
+        for ($i = 1; $i <= $totalUnits; $i++) {
+            $units[] = [
+                'id_perumahan' => $property->id_perumahan,
+                'nama_blok' => 'Blok A',
+                'kode_blok' => 'A',
+                'nomor_unit' => $i,
+                'kode_unit' => "A{$i}",
+                'status_unit' => $i <= $availableUnits ? 'available' : 'sold',
+                'id_booking_terakhir' => null,
+            ];
+        }
+
+        PerumahanUnit::query()->insertOrIgnore($units);
+    }
+
+    private function refreshUnitCounters(Perumahan $property): void
+    {
+        $total = PerumahanUnit::query()
+            ->where('id_perumahan', $property->id_perumahan)
+            ->count();
+
+        $available = PerumahanUnit::query()
+            ->where('id_perumahan', $property->id_perumahan)
+            ->where('status_unit', 'available')
+            ->count();
+
+        $property->update([
+            'jumlah_seluruh_unit' => $total,
+            'jumlah_unit_tersedia' => $available,
+        ]);
+    }
+
     private function mediaUrls(Perumahan $property): array
     {
         return $property->media
@@ -298,12 +610,50 @@ class PerumahanController extends Controller
             ->all();
     }
 
-    private function transformForUser(Perumahan $property): array
+    private function buildUnitBlocks(Perumahan $property): array
+    {
+        $grouped = $property->units
+            ->sortBy(fn ($unit) => sprintf('%s-%06d', $unit->kode_blok, $unit->nomor_unit))
+            ->groupBy('kode_blok');
+
+        return $grouped->map(function ($units) {
+            $first = $units->first();
+
+            return [
+                'blockName' => $first->nama_blok,
+                'blockCode' => $first->kode_blok,
+                'units' => $units->map(function ($unit) {
+                    return [
+                        'id' => $unit->id_unit_perumahan,
+                        'code' => $unit->kode_unit,
+                        'status' => $unit->status_unit,
+                    ];
+                })->values()->all(),
+            ];
+        })->values()->all();
+    }
+
+    private function buildBlockConfig(Perumahan $property): array
+    {
+        return $property->units
+            ->groupBy('kode_blok')
+            ->map(function ($units) {
+                $first = $units->first();
+                return [
+                    'blockName' => $first->nama_blok,
+                    'unitCount' => $units->count(),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function transformForUser(Perumahan $property, bool $withUnits = false): array
     {
         $images = $this->mediaUrls($property);
         $facilities = json_decode((string) ($property->fasilitas ?? '[]'), true);
 
-        return [
+        $result = [
             'id' => $property->id_perumahan,
             'name' => $property->nama_perumahan,
             'location' => $property->lokasi,
@@ -328,12 +678,22 @@ class PerumahanController extends Controller
             'marketingWhatsapp' => $property->whatsapp_marketing,
             'isActive' => (bool) $property->status_aktif,
         ];
+
+        if ($withUnits) {
+            $result['unitBlocks'] = $this->buildUnitBlocks($property);
+        }
+
+        return $result;
     }
 
-    private function transformForAdmin(Perumahan $property): array
+    private function transformForAdmin(Perumahan $property, bool $withUnits = false): array
     {
-        $result = $this->transformForUser($property);
+        $result = $this->transformForUser($property, $withUnits);
         $result['statusAktif'] = (bool) $property->status_aktif;
+
+        if ($withUnits) {
+            $result['blockConfig'] = $this->buildBlockConfig($property);
+        }
 
         return $result;
     }

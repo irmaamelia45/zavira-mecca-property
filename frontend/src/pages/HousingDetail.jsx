@@ -1,20 +1,28 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
 import { Card, CardContent, CardTitle } from '../components/ui/Card';
-import { FiArrowLeft, FiCheck, FiMapPin, FiHeart, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiArrowLeft, FiCheck, FiMapPin, FiHeart, FiChevronLeft, FiChevronRight, FiChevronDown } from 'react-icons/fi';
 import { FaWhatsapp, FaTag, FaClock } from 'react-icons/fa';
 import { API_BASE, mapPromoFromApi, formatPromoPeriod, getPromoPricing as calculatePromoPricing, isPromoActive, resolveImage } from '../utils/promo';
 import { isFavoriteProperty, toggleFavoriteProperty } from '../lib/favorites';
+import UnitPicker from '../components/booking/UnitPicker';
 
 export default function HousingDetail() {
     const { id } = useParams();
+    const navigate = useNavigate();
     const [property, setProperty] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [activeImage, setActiveImage] = useState(0);
+    const [showUnitDropdown, setShowUnitDropdown] = useState(false);
+    const [unitBlocks, setUnitBlocks] = useState([]);
+    const [unitLoading, setUnitLoading] = useState(false);
+    const [unitError, setUnitError] = useState('');
+    const [selectedUnit, setSelectedUnit] = useState(null);
+    const [unitValidationError, setUnitValidationError] = useState('');
 
     const [dp, setDp] = useState('');
     const [tenorMonths, setTenorMonths] = useState('');
@@ -77,6 +85,56 @@ export default function HousingDetail() {
 
         fetchPromos();
     }, []);
+
+    useEffect(() => {
+        if (!showUnitDropdown) return;
+
+        let isMounted = true;
+        let intervalId = null;
+
+        const fetchUnitAvailability = async () => {
+            try {
+                const response = await fetch(`${API_BASE}/api/perumahan/${id}/units`);
+                if (!response.ok) {
+                    throw new Error('Gagal memuat status unit.');
+                }
+                const data = await response.json();
+                if (!isMounted) return;
+
+                setUnitBlocks(Array.isArray(data?.unitBlocks) ? data.unitBlocks : []);
+                setUnitError('');
+            } catch (err) {
+                if (!isMounted) return;
+                setUnitError(err.message || 'Gagal memuat status unit.');
+            } finally {
+                if (isMounted) {
+                    setUnitLoading(false);
+                }
+            }
+        };
+
+        setUnitLoading(true);
+        fetchUnitAvailability();
+        intervalId = setInterval(fetchUnitAvailability, 15000);
+
+        return () => {
+            isMounted = false;
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+        };
+    }, [id, showUnitDropdown]);
+
+    useEffect(() => {
+        if (!selectedUnit?.id) return;
+        const latest = unitBlocks
+            .flatMap((block) => block.units || [])
+            .find((item) => String(item.id) === String(selectedUnit.id));
+
+        if (!latest || latest.status !== 'available') {
+            setSelectedUnit(null);
+        }
+    }, [unitBlocks, selectedUnit]);
 
     const images = useMemo(() => {
         if (!property?.images?.length) return [];
@@ -196,6 +254,35 @@ export default function HousingDetail() {
 
         const cappedValue = Math.min(numericValue, finalPrice);
         setDp(`Rp ${formatThousandDots(cappedValue)}`);
+    };
+
+    const handleToggleUnitDropdown = () => {
+        setShowUnitDropdown((prev) => !prev);
+    };
+
+    const handleChooseUnit = (unit) => {
+        setSelectedUnit(unit);
+        setUnitValidationError('');
+    };
+
+    const handleGoBooking = () => {
+        if (!selectedUnit?.id) {
+            setShowUnitDropdown(true);
+            setUnitValidationError('Silakan pilih unit terlebih dahulu sebelum booking.');
+            return;
+        }
+
+        const params = new URLSearchParams({
+            unitId: String(selectedUnit.id),
+            unitCode: selectedUnit.code || '',
+        });
+
+        navigate(`/booking/${property.id}?${params.toString()}`, {
+            state: {
+                selectedUnitId: selectedUnit.id,
+                selectedUnitCode: selectedUnit.code,
+            },
+        });
     };
 
     return (
@@ -363,9 +450,50 @@ export default function HousingDetail() {
                                 <span className="font-bold text-gray-900">{property.availableUnits || 0}/{property.totalUnits || 0}</span>
                             </div>
 
-                            <Link to={`/booking/${property.id}`}>
-                                <Button className="w-full h-12 text-base font-bold">Booking Sekarang</Button>
-                            </Link>
+                            <div className="space-y-3 border-t border-gray-100 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={handleToggleUnitDropdown}
+                                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-100"
+                                >
+                                    <span className="flex items-center justify-between gap-3">
+                                        <span className="text-sm font-semibold text-gray-900">
+                                            Pilih Blok & Unit (Wajib)
+                                            {selectedUnit?.code ? ` - ${selectedUnit.code}` : ''}
+                                        </span>
+                                        <FiChevronDown className={`text-gray-500 transition-transform ${showUnitDropdown ? 'rotate-180' : ''}`} />
+                                    </span>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Klik untuk menampilkan pilihan blok dan unit sebelum booking.
+                                    </p>
+                                </button>
+
+                                {showUnitDropdown && (
+                                    <div className="rounded-xl border border-gray-200 bg-white p-3">
+                                        <UnitPicker
+                                            unitBlocks={unitBlocks}
+                                            selectedUnitId={selectedUnit?.id}
+                                            onSelect={handleChooseUnit}
+                                            loading={unitLoading}
+                                            error={unitError}
+                                            validationError={unitValidationError}
+                                            title="Pilih blok dan unit rumah"
+                                            helperText="Unit hijau tersedia untuk booking. Unit kuning/merah tidak dapat dipilih."
+                                        />
+                                    </div>
+                                )}
+                                {!showUnitDropdown && unitValidationError && (
+                                    <p className="text-sm text-amber-700">{unitValidationError}</p>
+                                )}
+
+                                <Button
+                                    type="button"
+                                    className="w-full h-12 text-base font-bold"
+                                    onClick={handleGoBooking}
+                                >
+                                    Booking Sekarang
+                                </Button>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>

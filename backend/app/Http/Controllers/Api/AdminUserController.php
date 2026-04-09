@@ -5,12 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\UserApiToken;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Password;
 
 class AdminUserController extends Controller
 {
-    private const PHONE_RULE = 'regex:/^(?:\\+62|62|0)8[0-9]{7,13}$/';
+    private const PHONE_RULE = 'regex:/^628[0-9]{7,13}$/';
 
     public function indexMarketing(Request $request)
     {
@@ -52,6 +53,10 @@ class AdminUserController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+        $request->merge([
+            'no_hp' => $this->normalizePhone62((string) $request->input('no_hp')),
+        ]);
+
         $validated = $request->validate([
             'nama' => 'required|string|max:100',
             'email' => 'required|email|max:120|unique:user,email',
@@ -59,6 +64,8 @@ class AdminUserController extends Controller
             'password' => ['required', 'confirmed', Password::min(8)],
             'alamat' => 'nullable|string|max:255',
             'is_active' => 'nullable|boolean',
+        ], [
+            'no_hp.regex' => 'Nomor HP harus menggunakan format 62xxxx.',
         ]);
 
         $marketingRole = Role::query()->firstOrCreate(
@@ -88,6 +95,10 @@ class AdminUserController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+        $request->merge([
+            'no_hp' => $this->normalizePhone62((string) $request->input('no_hp')),
+        ]);
+
         $validated = $request->validate([
             'nama' => 'required|string|max:100',
             'email' => 'required|email|max:120|unique:user,email',
@@ -95,6 +106,8 @@ class AdminUserController extends Controller
             'password' => ['required', 'confirmed', Password::min(8)],
             'alamat' => 'nullable|string|max:255',
             'is_active' => 'nullable|boolean',
+        ], [
+            'no_hp.regex' => 'Nomor HP harus menggunakan format 62xxxx.',
         ]);
 
         $adminRole = Role::query()->firstOrCreate(
@@ -192,6 +205,56 @@ class AdminUserController extends Controller
         return response()->json(['message' => 'Akun Admin Perumahan berhasil dihapus.']);
     }
 
+    public function updateAdminStatus(Request $request, $id)
+    {
+        if (! $this->hasAllowedRole($request, ['superadmin'])) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $validated = $request->validate([
+            'is_active' => 'required|boolean',
+        ]);
+
+        $user = User::query()
+            ->with('role:id_role,nama_role')
+            ->find($id);
+
+        if (! $user || ($user->role?->nama_role !== 'admin')) {
+            return response()->json(['message' => 'Akun Admin Perumahan tidak ditemukan.'], 404);
+        }
+
+        if ((int) $user->id_user === (int) $request->user()?->id_user) {
+            return response()->json([
+                'message' => 'Anda tidak dapat mengubah status akun Anda sendiri.',
+            ], 422);
+        }
+
+        $nextStatus = (bool) $validated['is_active'];
+        $currentStatus = (bool) $user->is_active;
+
+        if ($nextStatus !== $currentStatus) {
+            $user->update([
+                'is_active' => $nextStatus,
+            ]);
+
+            if (! $nextStatus) {
+                UserApiToken::query()
+                    ->where('id_user', $user->id_user)
+                    ->delete();
+            }
+        }
+
+        $freshUser = $user->fresh('role:id_role,nama_role');
+        $message = $nextStatus
+            ? 'Akun Admin Perumahan berhasil diaktifkan.'
+            : 'Akun Admin Perumahan berhasil dinonaktifkan.';
+
+        return response()->json([
+            'message' => $message,
+            'user' => $this->formatUser($freshUser),
+        ]);
+    }
+
     private function formatUser(User $user): array
     {
         return [
@@ -211,5 +274,31 @@ class AdminUserController extends Controller
     {
         $role = strtolower((string) optional($request->user()?->role)->nama_role);
         return in_array($role, array_map('strtolower', $allowedRoles), true);
+    }
+
+    private function normalizePhone62(string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+        if ($digits === '') {
+            return '';
+        }
+
+        $digits = preg_replace('/^00+/', '', $digits) ?? $digits;
+
+        if (str_starts_with($digits, '62')) {
+            $localPart = preg_replace('/^0+/', '', substr($digits, 2)) ?? substr($digits, 2);
+            return '62'.$localPart;
+        }
+
+        if (str_starts_with($digits, '0')) {
+            $localPart = preg_replace('/^0+/', '', $digits) ?? $digits;
+            return '62'.$localPart;
+        }
+
+        if (str_starts_with($digits, '8')) {
+            return '62'.$digits;
+        }
+
+        return '62'.preg_replace('/^62/', '', $digits);
     }
 }

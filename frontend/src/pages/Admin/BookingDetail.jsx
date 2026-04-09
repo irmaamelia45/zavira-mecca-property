@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { Card, CardContent } from '../../components/ui/Card';
-import { FiArrowLeft, FiFileText, FiMapPin, FiUser } from 'react-icons/fi';
+import { FiArrowLeft, FiCheckCircle, FiFileText, FiMapPin, FiSlash, FiUser, FiXCircle } from 'react-icons/fi';
 import { API_BASE, formatMoney } from '../../utils/promo';
 import { authHeaders } from '../../lib/auth';
 
@@ -156,8 +156,81 @@ export default function BookingDetail() {
     const currentStatus = booking.status;
     const isPendingStatus = currentStatus === 'Menunggu Konfirmasi' || currentStatus === 'Menunggu';
 
+    const statusActions = [
+        {
+            key: 'Disetujui',
+            buttonLabel: 'Setujui',
+            hint: 'Disetujui admin perumahan',
+            helper: 'Booking lanjut ke tahap proses bank setelah disetujui admin perumahan.',
+            group: 'Tahap Awal',
+            tone: 'positive',
+            icon: FiCheckCircle,
+            disabled: updating || !isPendingStatus,
+        },
+        {
+            key: 'Ditolak',
+            buttonLabel: 'Tolak',
+            hint: 'Ditolak admin perumahan',
+            helper: 'Booking berhenti di tahap awal karena ditolak admin perumahan.',
+            group: 'Tahap Awal',
+            tone: 'negative',
+            icon: FiXCircle,
+            disabled: updating || !isPendingStatus,
+        },
+        {
+            key: 'Selesai',
+            buttonLabel: 'Selesai',
+            hint: 'Proses bank selesai, siap akad',
+            helper: 'Gunakan saat proses di bank selesai dan booking siap masuk tahap akad.',
+            group: 'Tahap Lanjutan Bank',
+            tone: 'final-positive',
+            icon: FiCheckCircle,
+            disabled: updating || currentStatus !== 'Disetujui',
+        },
+        {
+            key: 'Dibatalkan',
+            buttonLabel: 'Batalkan',
+            hint: 'Pengajuan ditolak oleh bank',
+            helper: 'Gunakan saat pengajuan bank ditolak sehingga proses booking dibatalkan.',
+            group: 'Tahap Lanjutan Bank',
+            tone: 'final-negative',
+            icon: FiSlash,
+            disabled: updating || currentStatus !== 'Disetujui',
+        },
+    ];
+
+    const getActionToneClasses = (tone) => {
+        if (tone === 'positive') {
+            return {
+                badge: 'bg-green-50 text-green-700 border-green-200',
+                iconWrap: 'bg-green-100 text-green-700 border-green-200',
+                activeCard: 'border-green-300 bg-green-50/50',
+            };
+        }
+        if (tone === 'negative') {
+            return {
+                badge: 'bg-red-50 text-red-700 border-red-200',
+                iconWrap: 'bg-red-100 text-red-700 border-red-200',
+                activeCard: 'border-red-300 bg-red-50/50',
+            };
+        }
+        if (tone === 'final-positive') {
+            return {
+                badge: 'bg-blue-50 text-blue-700 border-blue-200',
+                iconWrap: 'bg-blue-100 text-blue-700 border-blue-200',
+                activeCard: 'border-blue-300 bg-blue-50/50',
+            };
+        }
+
+        return {
+            badge: 'bg-gray-100 text-gray-700 border-gray-200',
+            iconWrap: 'bg-slate-100 text-slate-700 border-slate-200',
+            activeCard: 'border-slate-300 bg-slate-50/50',
+        };
+    };
+
     return (
-        <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="admin-page space-y-6 animate-in fade-in duration-300">
             <Link to="/admin/bookings" className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-primary-700">
                 <FiArrowLeft /> Kembali ke Kelola Booking
             </Link>
@@ -167,13 +240,21 @@ export default function BookingDetail() {
                     <h1 className="text-2xl font-bold text-gray-900">Detail Booking</h1>
                     <p className="text-gray-500 text-sm">Kode: {booking.code}</p>
                 </div>
-                <Badge variant={statusVariant(currentStatus)} className="w-fit">{currentStatus}</Badge>
+                <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={statusVariant(currentStatus)} className="w-fit">{currentStatus}</Badge>
+                </div>
             </div>
 
             {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
 
             <Card className="border-gray-200 shadow-sm">
                 <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="rounded-md border border-gray-100 bg-gray-50 px-4 py-3">
+                        <p className="text-gray-500">Unit Booking</p>
+                        <p className="font-semibold text-gray-900">
+                            {booking.unit?.code ? `${booking.unit.code} (${booking.unit.block_name || '-'})` : '-'}
+                        </p>
+                    </div>
                     <div className="rounded-md border border-gray-100 bg-gray-50 px-4 py-3">
                         <p className="text-gray-500">Tanggal Booking</p>
                         <p className="font-semibold text-gray-900">{formatDateTime(booking.date)}</p>
@@ -260,7 +341,7 @@ export default function BookingDetail() {
                         className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500/25 focus:border-primary-500"
                     />
                     <div className="flex justify-end">
-                        <Button type="button" onClick={saveAdminNote} disabled={updating}>
+                        <Button type="button" onClick={saveAdminNote} disabled={updating} className="w-full sm:w-auto">
                             {updating ? 'Menyimpan...' : 'Simpan Catatan'}
                         </Button>
                     </div>
@@ -269,36 +350,77 @@ export default function BookingDetail() {
 
             <Card className="border-gray-200 shadow-sm">
                 <CardContent className="p-6">
-                    <h2 className="text-lg font-bold text-gray-900 mb-3">Aksi Status Booking</h2>
-                    <div className="flex flex-wrap gap-2">
-                        <Button
-                            variant="outline"
-                            disabled={updating || !isPendingStatus}
-                            onClick={() => updateStatus('Disetujui')}
-                        >
-                            Setujui
-                        </Button>
-                        <Button
-                            variant="outline"
-                            disabled={updating || !isPendingStatus}
-                            onClick={() => updateStatus('Ditolak')}
-                        >
-                            Tolak
-                        </Button>
-                        <Button
-                            variant="outline"
-                            disabled={updating || currentStatus !== 'Disetujui'}
-                            onClick={() => updateStatus('Selesai')}
-                        >
-                            Selesai
-                        </Button>
-                        <Button
-                            variant="outline"
-                            disabled={updating || currentStatus !== 'Disetujui'}
-                            onClick={() => updateStatus('Dibatalkan')}
-                        >
-                            Batalkan
-                        </Button>
+                    <div className="space-y-3">
+                        <h2 className="text-lg font-bold text-gray-900">Aksi Status Booking</h2>
+                        <p className="text-sm text-gray-600">
+                            Pilih tindakan verifikasi booking sesuai tahapan proses.
+                        </p>
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs sm:text-sm text-amber-800">
+                            Tahap awal hanya untuk keputusan admin perumahan. Tahap lanjutan bank hanya aktif setelah status booking Disetujui.
+                        </div>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-1 xl:grid-cols-2 gap-4">
+                        {statusActions.map((action) => {
+                            const isActiveStatus = currentStatus === action.key;
+                            const toneClasses = getActionToneClasses(action.tone);
+                            const Icon = action.icon;
+                            const disabled = action.disabled || isActiveStatus;
+
+                            return (
+                                <div
+                                    key={action.key}
+                                    className={`rounded-xl border p-4 transition-colors ${isActiveStatus
+                                        ? toneClasses.activeCard
+                                        : 'border-gray-200 bg-white'
+                                        } ${disabled && !isActiveStatus ? 'opacity-70' : ''}`}
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-center gap-3">
+                                            <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${toneClasses.iconWrap}`}>
+                                                <Icon size={18} />
+                                            </span>
+                                            <div>
+                                                <p className="text-sm text-gray-500">{action.group}</p>
+                                                <p className="text-base font-semibold text-gray-900">{action.key}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${toneClasses.badge}`}>
+                                                {action.tone === 'positive' ? 'Positif' : action.tone === 'negative' ? 'Negatif' : 'Final'}
+                                            </span>
+                                            {isActiveStatus && (
+                                                <span className="rounded-full border border-primary-200 bg-primary-50 px-2.5 py-1 text-[11px] font-semibold text-primary-700">
+                                                    Status Saat Ini
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-3 space-y-2">
+                                        <p className="text-sm font-medium text-gray-800">{action.hint}</p>
+                                        <p className="text-xs text-gray-500">{action.helper}</p>
+                                    </div>
+
+                                    <div className="mt-4">
+                                        <Button
+                                            variant={isActiveStatus ? 'secondary' : 'outline'}
+                                            disabled={disabled}
+                                            onClick={() => updateStatus(action.key)}
+                                            className="w-full sm:w-auto"
+                                            title={disabled && !isActiveStatus ? 'Belum dapat dipilih pada tahap ini' : ''}
+                                        >
+                                            {isActiveStatus ? 'Status Aktif' : action.buttonLabel}
+                                        </Button>
+                                        {disabled && !isActiveStatus && (
+                                            <p className="mt-2 text-xs text-gray-500">
+                                                Belum tersedia pada status saat ini.
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </CardContent>
             </Card>

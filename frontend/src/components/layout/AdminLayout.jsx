@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { FaHome, FaBuilding, FaTags, FaClipboardList, FaSignOutAlt, FaBars, FaTimes, FaSearch, FaHandHoldingUsd, FaUserTie, FaChevronUp } from 'react-icons/fa';
+import { FaHome, FaBuilding, FaTags, FaClipboardList, FaSignOutAlt, FaBars, FaTimes, FaSearch, FaHandHoldingUsd, FaUserTie, FaUserShield, FaChevronUp, FaLock } from 'react-icons/fa';
+import { FiUser } from 'react-icons/fi';
 import { cn } from '../../lib/utils';
 import logoPt from '../../assets/logo_pt.png';
 import { API_BASE } from '../../utils/promo';
-import { authHeaders, clearAuth, getUserRole, isLoggedIn } from '../../lib/auth';
+import { authHeaders, clearAuth, getStoredUser, getUserRole, isLoggedIn } from '../../lib/auth';
 
 const MENU_SECTIONS = [
     {
@@ -32,13 +33,21 @@ const MENU_SECTIONS = [
     {
         title: 'Manajemen Pengguna',
         items: [
-            { name: 'Akun Internal', path: '/admin/marketing-users', icon: <FaUserTie /> },
+            { name: 'Akun Marketing', path: '/admin/marketing-users', icon: <FaUserTie /> },
+            { name: 'Akun Admin', path: '/admin/admin-users', icon: <FaUserShield />, roles: ['superadmin'] },
         ],
     },
 ];
 
 export default function AdminLayout() {
-    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const currentRole = getUserRole();
+    const currentUser = getStoredUser();
+    const profileLabel = currentUser?.nama || (currentRole === 'superadmin' ? 'Superadmin' : 'Admin');
+    const visibleMenuSections = React.useMemo(() => MENU_SECTIONS, []);
+
+    const [sidebarOpen, setSidebarOpen] = useState(() => (
+        typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+    ));
     const location = useLocation();
     const navigate = useNavigate();
     const [openSections, setOpenSections] = useState(() => (
@@ -52,13 +61,24 @@ export default function AdminLayout() {
         }
     }, [navigate]);
 
+    React.useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth >= 1024) {
+                setSidebarOpen(true);
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     const handleLogout = async () => {
         try {
             await fetch(`${API_BASE}/api/auth/logout`, {
                 method: 'POST',
                 headers: authHeaders(),
             });
-        } catch (err) {
+        } catch {
             // Ignore logout API failure.
         }
         clearAuth();
@@ -72,7 +92,7 @@ export default function AdminLayout() {
     };
 
     React.useEffect(() => {
-        const activeSection = MENU_SECTIONS.find((section) => (
+        const activeSection = visibleMenuSections.find((section) => (
             section.items.some((item) => (
                 item.path === '/admin'
                     ? location.pathname === '/admin'
@@ -84,28 +104,38 @@ export default function AdminLayout() {
         setOpenSections((prev) => (
             prev[activeSection.title] ? prev : { ...prev, [activeSection.title]: true }
         ));
+    }, [location.pathname, visibleMenuSections]);
+
+    React.useEffect(() => {
+        if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+            setSidebarOpen(false);
+        }
     }, [location.pathname]);
 
     const toggleSection = (title) => {
         setOpenSections((prev) => ({ ...prev, [title]: !prev[title] }));
     };
 
+    const isProfileActive = location.pathname.startsWith('/admin/profile') || location.pathname.startsWith('/admin/profil');
+
     return (
         <div className="admin-ui min-h-screen bg-[#f8f7f3] font-sans text-slate-800">
             <header className="fixed inset-x-0 top-0 z-50 h-16 border-b border-[#e7dfd0] bg-[#fdfcf9]/95 backdrop-blur-sm">
-                <div className="h-full px-4 md:px-8 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
+                <div className="h-full px-3 sm:px-4 md:px-6 lg:px-8 flex items-center justify-between gap-2 sm:gap-4">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                         <button className="lg:hidden text-gray-600" onClick={() => setSidebarOpen(!sidebarOpen)}>
                             {sidebarOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
                         </button>
-                        <Link to="/admin" className="flex items-center gap-3">
+                        <Link to="/admin" className="flex items-center gap-2 sm:gap-3 min-w-0">
                             <img src={logoPt} alt="Zavira Mecca Property" className="h-9 object-contain" />
-                            <span className="text-sm md:text-base font-bold tracking-tight text-[#7d6a45] leading-tight">Zavira Mecca Property</span>
+                            <span className="hidden sm:block text-sm md:text-base font-bold tracking-tight text-[#7d6a45] leading-tight truncate">
+                                Zavira Mecca Property
+                            </span>
                         </Link>
                     </div>
 
-                    <div className="flex items-center gap-3 md:gap-6">
-                        <div className="hidden md:flex items-center rounded-xl border border-[#e4dbc9] bg-white px-3 py-2 w-64">
+                    <div className="flex items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6 shrink-0">
+                        <div className="hidden md:flex items-center rounded-xl border border-[#e4dbc9] bg-white px-3 py-2 w-52 lg:w-64">
                             <FaSearch className="text-gray-400 mr-2" />
                             <input
                                 type="text"
@@ -113,23 +143,37 @@ export default function AdminLayout() {
                                 className="bg-transparent border-none focus:outline-none text-sm w-full placeholder-gray-400 text-gray-700"
                             />
                         </div>
+                        <span className="hidden md:inline-flex rounded-full border border-[#e4dbc9] bg-white px-2.5 py-1 text-[11px] font-semibold uppercase text-[#7d6a45]">
+                            {currentRole || 'admin'}
+                        </span>
                         <span className="text-xs md:text-sm font-medium text-gray-500 hidden sm:block">
                             {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </span>
-                        <div className="h-9 w-9 rounded-full border border-[#e4dbc9] bg-white flex items-center justify-center text-xs font-semibold text-[#7d6a45]">
-                            AD
-                        </div>
+                        <Link
+                            to="/admin/profile"
+                            className={cn(
+                                "hidden sm:inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-semibold transition-colors max-w-[190px]",
+                                isProfileActive
+                                    ? "border-[#9aa9cb] bg-[#e4eaf6] text-[#334155]"
+                                    : "border-[#e4dbc9] bg-white text-[#7d6a45] hover:bg-[#f7f3ea]"
+                            )}
+                            title="Profil Akun"
+                            aria-label="Profil Akun"
+                        >
+                            <FiUser className="text-[16px] shrink-0" />
+                            <span className="truncate">{profileLabel}</span>
+                        </Link>
                     </div>
                 </div>
             </header>
 
             <div className="pt-16 flex min-h-[calc(100vh-4rem)]">
                 <aside className={cn(
-                    "fixed top-16 bottom-0 left-0 z-40 w-72 transform transition-transform duration-300 ease-in-out border-r border-[#e7dfd0] bg-[#fbfaf6] lg:static lg:translate-x-0 lg:h-[calc(100vh-4rem)] lg:sticky lg:top-16 flex flex-col",
+                    "fixed top-16 bottom-0 left-0 z-40 w-[85vw] max-w-72 transform transition-transform duration-300 ease-in-out border-r border-[#e7dfd0] bg-[#fbfaf6] lg:static lg:translate-x-0 lg:h-[calc(100vh-4rem)] lg:sticky lg:top-16 lg:w-72 flex flex-col",
                     sidebarOpen ? "translate-x-0" : "-translate-x-full"
                 )}>
-                    <nav className="p-4 pt-5 flex-1 overflow-y-auto space-y-5">
-                        {MENU_SECTIONS.map((section) => (
+                    <nav className="p-3 sm:p-4 pt-4 sm:pt-5 flex-1 overflow-y-auto space-y-5">
+                        {visibleMenuSections.map((section) => (
                             <div key={section.title}>
                                 {section.title !== 'Dashboard' && (
                                     <button
@@ -155,14 +199,24 @@ export default function AdminLayout() {
                                     )}
                                 >
                                     {section.items.map((item) => (
+                                        (() => {
+                                            const isLockedItem = Array.isArray(item.roles) && !item.roles.includes(currentRole);
+                                            return (
                                         <Link
                                             key={item.path}
                                             to={item.path}
+                                            onClick={() => {
+                                                if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                                                    setSidebarOpen(false);
+                                                }
+                                            }}
                                             className={cn(
                                                 "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 font-medium border border-transparent",
                                                 isActive(item.path)
                                                     ? "bg-gradient-to-r from-[#bcc7df] to-[#aebad6] text-[#334155] shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]"
-                                                    : "bg-transparent text-slate-600 hover:text-slate-700 hover:bg-[#ece7dc]"
+                                                    : isLockedItem
+                                                        ? "bg-transparent text-slate-500 hover:bg-[#f1ece1]"
+                                                        : "bg-transparent text-slate-600 hover:text-slate-700 hover:bg-[#ece7dc]"
                                             )}
                                         >
                                             <span className={cn(
@@ -173,7 +227,18 @@ export default function AdminLayout() {
                                                 {item.icon}
                                             </span>
                                             <span className="text-[15px] leading-5">{item.name}</span>
+                                            {isLockedItem && (
+                                                <span
+                                                    className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-700"
+                                                    title="Hanya superadmin yang dapat mengakses fitur ini."
+                                                    aria-label="Hanya superadmin yang dapat mengakses fitur ini."
+                                                >
+                                                    <FaLock className="text-[10px]" />
+                                                </span>
+                                            )}
                                         </Link>
+                                            );
+                                        })()
                                     ))}
                                 </div>
                             </div>
@@ -190,7 +255,7 @@ export default function AdminLayout() {
                     </div>
                 </aside>
 
-                <main className="flex-1 min-w-0 px-4 md:px-8 py-6">
+                <main className="flex-1 min-w-0 px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
                     <Outlet />
                 </main>
             </div>

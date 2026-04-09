@@ -61,8 +61,8 @@ export default function Dashboard() {
             value: cards.komersil,
             desc: 'Unit kategori komersil',
             Icon: FaHome,
-            iconClass: 'text-[#0f766e] bg-[#e9fbf7]',
-            accentClass: 'bg-[#10b981]',
+            iconClass: 'text-[#35518b] bg-[#edf3ff]',
+            accentClass: 'bg-[#35518b]',
         },
         {
             key: 'townhouse',
@@ -70,8 +70,8 @@ export default function Dashboard() {
             value: cards.townhouse,
             desc: 'Unit kategori townhouse',
             Icon: FaHome,
-            iconClass: 'text-[#b45309] bg-[#fff7e8]',
-            accentClass: 'bg-[#f59e0b]',
+            iconClass: 'text-[#35518b] bg-[#edf3ff]',
+            accentClass: 'bg-[#35518b]',
         },
         {
             key: 'total_booking',
@@ -79,8 +79,8 @@ export default function Dashboard() {
             value: cards.total_booking,
             desc: 'Seluruh booking terdaftar',
             Icon: FaBookmark,
-            iconClass: 'text-[#7e22ce] bg-[#f7efff]',
-            accentClass: 'bg-[#8b5cf6]',
+            iconClass: 'text-[#35518b] bg-[#edf3ff]',
+            accentClass: 'bg-[#35518b]',
         },
     ]), [cards]);
 
@@ -133,13 +133,13 @@ export default function Dashboard() {
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="admin-page space-y-6 animate-in fade-in duration-500">
             <div>
-                <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-[#0b1e45]">Dashboard</h1>
-                <p className="text-sm text-slate-500 mt-2">Ringkasan performa sistem pemasaran perumahan.</p>
+                <h1 className="admin-page-title text-3xl md:text-5xl font-bold tracking-tight text-[#0b1e45]">Dashboard</h1>
+                <p className="admin-page-subtitle text-sm text-slate-500 mt-2">Ringkasan performa sistem pemasaran perumahan.</p>
             </div>
 
-            <div className="rounded-2xl border border-[#e7dfd0] bg-white p-4 md:p-5 flex items-center justify-between gap-4 shadow-sm">
+            <div className="rounded-2xl border border-[#e7dfd0] bg-white p-4 md:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
                 <div className="flex items-center gap-4">
                     <img src={logoPt} alt="Zavira Mecca Property" className="h-12 w-12 rounded-xl border border-[#e7dfd0] bg-[#fbfaf6] p-1.5 object-contain" />
                     <div>
@@ -147,7 +147,7 @@ export default function Dashboard() {
                         <p className="text-slate-500 mt-1">{user?.nama || 'Admin'}</p>
                     </div>
                 </div>
-                <div className="rounded-xl border border-[#e7dfd0] bg-[#fbfaf6] px-4 py-2 text-sm text-slate-600">
+                <div className="rounded-xl border border-[#e7dfd0] bg-[#fbfaf6] px-4 py-2 text-sm text-slate-600 w-full sm:w-auto text-center sm:text-left">
                     {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </div>
             </div>
@@ -260,8 +260,8 @@ export default function Dashboard() {
                         <h2 className="text-xl font-bold text-[#0b1e45]">Daftar Booking Terbaru</h2>
                         <button className="text-slate-400 hover:text-slate-600"><FaEllipsisV size={14} /></button>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left min-w-[860px]">
+                    <div className="overflow-x-auto responsive-table-wrap">
+                        <table className="admin-table w-full text-sm text-left min-w-[860px]">
                             <thead className="text-slate-600 border-b border-[#ece4d6]">
                                 <tr>
                                     <th className="px-4 py-3 font-semibold">Nama</th>

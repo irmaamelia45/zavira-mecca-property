@@ -106,7 +106,7 @@ export default function AccountBooking() {
                 </div>
                 {!isMarketing && (
                     <Link to="/perumahan">
-                        <Button variant="outline">Booking Baru</Button>
+                        <Button variant="outline" className="w-full sm:w-auto">Booking Baru</Button>
                     </Link>
                 )}
             </div>
@@ -128,7 +128,7 @@ export default function AccountBooking() {
                             <h2 className="text-2xl md:text-3xl font-serif font-bold text-gray-900">Daftar Booking Masuk</h2>
                             <p className="mt-1 text-sm text-gray-500">Menampilkan {bookings.length} booking</p>
                         </div>
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto responsive-table-wrap">
                             <table className="min-w-full text-sm">
                                 <thead className="text-left text-gray-500 border-b border-gray-200">
                                     <tr>
@@ -194,7 +194,7 @@ export default function AccountBooking() {
                                 <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center lg:justify-end">
                                     {!isMarketing && booking.detailPath && (
                                         <Link to={booking.detailPath}>
-                                            <Button variant="outline" className="min-w-[130px]">Lihat Detail</Button>
+                                            <Button variant="outline" className="min-w-[130px] w-full sm:w-auto">Lihat Detail</Button>
                                         </Link>
                                     )}
                                 </div>

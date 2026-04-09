@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { Card, CardContent } from '../components/ui/Card';
+import { FiClock } from 'react-icons/fi';
 import {
     API_BASE,
     formatMoney,
@@ -11,6 +12,64 @@ import {
     normalizeApiListPayload,
 } from '../utils/promo';
 import { authHeaders } from '../lib/auth';
+
+const STATUS_INSIGHT_THEME = {
+    pending: {
+        shell: 'border-amber-300 bg-gradient-to-br from-amber-50 via-[#fffdf5] to-white',
+        orb: 'bg-amber-200/40',
+        icon: 'border-amber-300 bg-white/90 text-amber-700',
+        label: 'border-amber-300 bg-amber-100 text-amber-800',
+        title: 'text-amber-900',
+        text: 'text-amber-800/90',
+        nextCard: 'border-amber-200/80 bg-white/80',
+        nextLabel: 'text-amber-700',
+        dot: 'bg-amber-500',
+    },
+    positive: {
+        shell: 'border-emerald-300 bg-gradient-to-br from-emerald-50 via-[#f7fffb] to-white',
+        orb: 'bg-emerald-200/40',
+        icon: 'border-emerald-300 bg-white/90 text-emerald-700',
+        label: 'border-emerald-300 bg-emerald-100 text-emerald-800',
+        title: 'text-emerald-900',
+        text: 'text-emerald-800/90',
+        nextCard: 'border-emerald-200/80 bg-white/80',
+        nextLabel: 'text-emerald-700',
+        dot: 'bg-emerald-500',
+    },
+    'final-positive': {
+        shell: 'border-blue-300 bg-gradient-to-br from-blue-50 via-[#f7fbff] to-white',
+        orb: 'bg-blue-200/40',
+        icon: 'border-blue-300 bg-white/90 text-blue-700',
+        label: 'border-blue-300 bg-blue-100 text-blue-800',
+        title: 'text-blue-900',
+        text: 'text-blue-800/90',
+        nextCard: 'border-blue-200/80 bg-white/80',
+        nextLabel: 'text-blue-700',
+        dot: 'bg-blue-500',
+    },
+    negative: {
+        shell: 'border-red-300 bg-gradient-to-br from-red-50 via-[#fff8f8] to-white',
+        orb: 'bg-red-200/40',
+        icon: 'border-red-300 bg-white/90 text-red-700',
+        label: 'border-red-300 bg-red-100 text-red-800',
+        title: 'text-red-900',
+        text: 'text-red-800/90',
+        nextCard: 'border-red-200/80 bg-white/80',
+        nextLabel: 'text-red-700',
+        dot: 'bg-red-500',
+    },
+    'final-negative': {
+        shell: 'border-red-300 bg-gradient-to-br from-red-50 via-[#fff8f8] to-white',
+        orb: 'bg-red-200/40',
+        icon: 'border-red-300 bg-white/90 text-red-700',
+        label: 'border-red-300 bg-red-100 text-red-800',
+        title: 'text-red-900',
+        text: 'text-red-800/90',
+        nextCard: 'border-red-200/80 bg-white/80',
+        nextLabel: 'text-red-700',
+        dot: 'bg-red-500',
+    },
+};
 
 export default function AccountBookingDetail() {
     const { id } = useParams();
@@ -86,9 +145,72 @@ export default function AccountBookingDetail() {
         return '-';
     };
 
+    const normalizeBookingStatus = (value) => {
+        const status = String(value || '').trim().toLowerCase();
+        if (status === 'menunggu' || status === 'menunggu konfirmasi') return 'pending';
+        if (status === 'disetujui') return 'disetujui';
+        if (status === 'ditolak') return 'ditolak';
+        if (status === 'selesai') return 'selesai';
+        if (status === 'dibatalkan') return 'dibatalkan';
+        return 'pending';
+    };
+
+    const getStatusInsight = (normalizedStatus) => {
+        if (normalizedStatus === 'disetujui') {
+            return {
+                currentTitle: 'Booking Anda sudah disetujui admin perumahan.',
+                currentText: 'Pengajuan telah lolos verifikasi awal dan masuk ke tahap proses bank.',
+                nextTitle: 'Tahap berikutnya: menunggu hasil proses bank.',
+                nextText: 'Status berikutnya akan menjadi Selesai atau Dibatalkan sesuai hasil evaluasi bank.',
+                tone: 'positive',
+            };
+        }
+
+        if (normalizedStatus === 'ditolak') {
+            return {
+                currentTitle: 'Booking Anda ditolak pada tahap admin perumahan.',
+                currentText: 'Pengajuan tidak dapat dilanjutkan ke proses bank.',
+                nextTitle: 'Tahap berikutnya: tidak ada proses lanjutan.',
+                nextText: 'Silakan cek catatan admin untuk detail alasan penolakan.',
+                tone: 'negative',
+            };
+        }
+
+        if (normalizedStatus === 'selesai') {
+            return {
+                currentTitle: 'Proses booking Anda telah selesai di bank.',
+                currentText: 'Pengajuan dinyatakan siap untuk tahapan akad.',
+                nextTitle: 'Tahap berikutnya: persiapan akad.',
+                nextText: 'Status booking sudah final pada sistem.',
+                tone: 'final-positive',
+            };
+        }
+
+        if (normalizedStatus === 'dibatalkan') {
+            return {
+                currentTitle: 'Pengajuan booking dibatalkan pada tahap bank.',
+                currentText: 'Pengajuan tidak dapat dilanjutkan karena ditolak oleh bank.',
+                nextTitle: 'Tahap berikutnya: tidak ada proses lanjutan.',
+                nextText: 'Status booking sudah final pada sistem.',
+                tone: 'final-negative',
+            };
+        }
+
+        return {
+            currentTitle: 'Booking Anda sedang menunggu verifikasi awal admin perumahan.',
+            currentText: 'Pengajuan belum diputuskan dan masih dalam antrean proses verifikasi.',
+            nextTitle: 'Tahap berikutnya: keputusan awal admin perumahan.',
+            nextText: 'Status akan berubah menjadi Disetujui atau Ditolak.',
+            tone: 'pending',
+        };
+    };
+
     const basePrice = Number(booking?.perumahan?.harga) || 0;
     const promoPricing = calculatePromoPricing(promos, booking?.perumahan?.id, basePrice);
     const finalPrice = Math.max(0, basePrice - promoPricing.discount);
+    const normalizedStatus = normalizeBookingStatus(booking?.status_booking);
+    const statusInsight = getStatusInsight(normalizedStatus);
+    const statusTheme = STATUS_INSIGHT_THEME[statusInsight.tone] || STATUS_INSIGHT_THEME.pending;
 
     if (loading) {
         return <div className="container-custom py-16 text-sm text-gray-500">Memuat detail booking...</div>;
@@ -128,7 +250,41 @@ export default function AccountBookingDetail() {
                         <h2 className="text-xl font-bold text-gray-900">Status Booking</h2>
                         <Badge variant={statusVariant(booking.status_booking)}>{booking.status_booking}</Badge>
                     </div>
+
+                    <div className={`relative overflow-hidden rounded-2xl border ${statusTheme.shell}`}>
+                        <div className={`pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full blur-2xl ${statusTheme.orb}`} />
+                        <div className="relative p-4 sm:p-5 space-y-4">
+                            <div className="flex items-start gap-3">
+                                <span className={`mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border shadow-sm ${statusTheme.icon}`}>
+                                    <FiClock size={18} />
+                                </span>
+                                <div className="space-y-2">
+                                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-wide ${statusTheme.label}`}>
+                                        Status Saat Ini
+                                    </span>
+                                    <p className={`text-base sm:text-lg font-semibold leading-tight ${statusTheme.title}`}>{statusInsight.currentTitle}</p>
+                                    <p className={`text-sm leading-relaxed ${statusTheme.text}`}>{statusInsight.currentText}</p>
+                                </div>
+                            </div>
+
+                            <div className={`rounded-xl border p-3.5 sm:p-4 backdrop-blur-sm ${statusTheme.nextCard}`}>
+                                <div className="flex items-center gap-2">
+                                    <span className={`inline-flex h-2 w-2 rounded-full ${statusTheme.dot}`} />
+                                    <p className={`text-[11px] font-semibold uppercase tracking-[0.08em] ${statusTheme.nextLabel}`}>Tahap Berikutnya</p>
+                                </div>
+                                <p className="mt-1.5 text-sm sm:text-base font-semibold text-gray-900">{statusInsight.nextTitle}</p>
+                                <p className="mt-1 text-xs sm:text-sm text-gray-600">{statusInsight.nextText}</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
+                            <p className="text-gray-500">Unit Dibooking</p>
+                            <p className="font-semibold text-gray-900">
+                                {booking.unit?.code ? `${booking.unit.code} (${booking.unit.block_name || '-'})` : '-'}
+                            </p>
+                        </div>
                         <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
                             <p className="text-gray-500">Tanggal Booking</p>
                             <p className="font-semibold text-gray-900">{formatDateTime(booking.tanggal_booking)}</p>

@@ -153,13 +153,13 @@ export default function PromoManagement() {
     }, [promos]);
 
     return (
-        <div className="space-y-7 animate-in fade-in duration-500">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="admin-page space-y-7 animate-in fade-in duration-500">
+            <div className="admin-page-head flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-[2rem] leading-tight tracking-tight font-semibold text-gray-900">Manajemen Promo</h1>
-                    <p className="text-gray-500 text-sm mt-1">Kelola promo yang tampil di halaman user dan detail perumahan.</p>
+                    <h1 className="admin-page-title text-[2rem] leading-tight tracking-tight font-semibold text-gray-900">Manajemen Promo</h1>
+                    <p className="admin-page-subtitle text-gray-500 text-sm mt-1">Kelola promo yang tampil di halaman user dan detail perumahan.</p>
                 </div>
-                <Button onClick={() => navigate('/admin/promos/add')}>
+                <Button onClick={() => navigate('/admin/promos/add')} className="w-full sm:w-auto">
                     <FaPlus className="mr-2" /> Tambah Promo
                 </Button>
             </div>
@@ -208,7 +208,7 @@ export default function PromoManagement() {
             <Card className="border-gray-200 shadow-sm overflow-hidden rounded-xl">
                 <CardContent className="p-0">
                     <div className="p-5 border-b border-gray-100 flex flex-col gap-4 bg-white">
-                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                        <div className="admin-toolbar flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                             <div className="relative w-full lg:max-w-sm">
                                 <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                                 <input
@@ -219,13 +219,13 @@ export default function PromoManagement() {
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
                             </div>
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
                                 <span className="text-sm text-gray-500">{filteredPromos.length} data ditemukan</span>
-                                <div className="flex items-center gap-2">
-                                    <div className="relative">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+                                    <div className="relative w-full sm:w-auto">
                                         <FaSlidersH className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                                         <select
-                                            className="h-10 rounded-lg border border-gray-200 pl-8 pr-8 text-xs focus:outline-none focus:ring-2 focus:ring-primary-300"
+                                            className="w-full sm:w-auto h-10 rounded-lg border border-gray-200 pl-8 pr-8 text-xs focus:outline-none focus:ring-2 focus:ring-primary-300"
                                             value={sortBy}
                                             onChange={(e) => setSortBy(e.target.value)}
                                         >
@@ -237,15 +237,15 @@ export default function PromoManagement() {
                                             <option value="value_asc">Nilai Promo Terendah</option>
                                         </select>
                                     </div>
-                                    <Button variant="outline" className="h-10 px-3.5" onClick={fetchPromos}>
+                                    <Button variant="outline" className="h-10 px-3.5 w-full sm:w-auto" onClick={fetchPromos}>
                                         <FaSyncAlt className="mr-2" /> Refresh
                                     </Button>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                            <div className="flex flex-wrap items-center gap-2">
+                        <div className="admin-filter-row flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                            <div className="admin-chip-group flex flex-wrap items-center gap-2">
                                 {PROMO_TYPE_FILTERS.map((item) => (
                                     <button
                                         key={item.key}
@@ -257,7 +257,7 @@ export default function PromoManagement() {
                                     </button>
                                 ))}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="admin-chip-group flex items-center gap-2">
                                 <button
                                     type="button"
                                     onClick={() => setStatusFilter('all')}
@@ -283,8 +283,8 @@ export default function PromoManagement() {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-[13px] text-left min-w-[1080px]">
+                    <div className="overflow-x-auto responsive-table-wrap">
+                        <table className="admin-table w-full text-[13px] text-left min-w-[1080px]">
                             <thead className="bg-[#f8fafc] text-gray-500 font-semibold uppercase text-[10px] tracking-[0.06em]">
                                 <tr>
                                     <th className="px-6 py-4">Promo</th>

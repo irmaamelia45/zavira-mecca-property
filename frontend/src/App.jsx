@@ -33,6 +33,8 @@ import CompanyProfileManagement from './pages/Admin/CompanyProfileManagement';
 import AddPromo from './pages/Admin/AddPromo';
 import EditPromo from './pages/Admin/EditPromo';
 import MarketingUserManagement from './pages/Admin/MarketingUserManagement';
+import AdminUserManagement from './pages/Admin/AdminUserManagement';
+import AdminProfile from './pages/Admin/AdminProfile';
 
 const NotFound = () => <div className="container-custom py-20 text-center text-2xl font-serif text-gray-500">404 - Halaman Tidak Ditemukan</div>;
 
@@ -68,6 +70,8 @@ function App() {
       <Route element={<ProtectedRoute allowRoles={['admin', 'superadmin']} />}>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
+          <Route path="profile" element={<AdminProfile />} />
+          <Route path="profil" element={<AdminProfile />} />
           <Route path="properties" element={<PropertyManagement />} />
           <Route path="properties/add" element={<AddProperty />} />
           <Route path="properties/:id" element={<PropertyDetail />} />
@@ -81,6 +85,7 @@ function App() {
           <Route path="kpr" element={<KprManagement />} />
           <Route path="company-profile" element={<CompanyProfileManagement />} />
           <Route path="marketing-users" element={<MarketingUserManagement />} />
+          <Route path="admin-users" element={<AdminUserManagement />} />
         </Route>
       </Route>
     </Routes>

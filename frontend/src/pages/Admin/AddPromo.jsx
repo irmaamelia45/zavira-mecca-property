@@ -136,21 +136,21 @@ export default function AddPromo() {
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="admin-page space-y-6 animate-in fade-in duration-500">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" onClick={() => navigate('/admin/promos')} className="p-2">
+            <div className="admin-page-head flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+                    <Button variant="ghost" onClick={() => navigate('/admin/promos')} className="p-2 shrink-0">
                         <FaArrowLeft />
                     </Button>
                     <div>
-                        <h1 className="text-2xl font-bold text-primary-900">Tambah Promo Baru</h1>
-                        <p className="text-gray-500 text-sm">Buat promo menarik untuk pelanggan.</p>
+                        <h1 className="admin-page-title text-2xl font-bold text-primary-900">Tambah Promo Baru</h1>
+                        <p className="admin-page-subtitle text-gray-500 text-sm">Buat promo menarik untuk pelanggan.</p>
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => navigate('/admin/promos')}>Batal</Button>
-                    <Button onClick={handleSubmit} disabled={isLoading} className="bg-primary-600 hover:bg-primary-700 text-white">
+                <div className="admin-page-head-actions flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                    <Button variant="outline" onClick={() => navigate('/admin/promos')} className="w-full sm:w-auto">Batal</Button>
+                    <Button onClick={handleSubmit} disabled={isLoading} className="bg-primary-600 hover:bg-primary-700 text-white w-full sm:w-auto">
                         {isLoading ? 'Menyimpan...' : <><FaSave className="mr-2" /> Simpan Promo</>}
                     </Button>
                 </div>

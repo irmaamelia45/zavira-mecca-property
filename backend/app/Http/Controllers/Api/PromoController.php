@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendWhatsappMessageJob;
 use App\Models\Promo;
 use App\Models\Perumahan;
+use App\Models\User;
+use App\Services\Whatsapp\WhatsappMessageTemplateService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -48,10 +51,13 @@ class PromoController extends Controller
 
         $promo = Promo::create($payload);
         $promo->perumahans()->sync($propertyIds);
+        $promo->load('perumahans:id_perumahan,nama_perumahan');
+
+        $this->dispatchPromoBroadcast($promo);
 
         return response()->json([
             'message' => 'Promo berhasil ditambahkan.',
-            'promo' => $this->formatPromo($promo->load('perumahans:id_perumahan,nama_perumahan')),
+            'promo' => $this->formatPromo($promo),
         ], 201);
     }
 
@@ -190,5 +196,36 @@ class PromoController extends Controller
         $file->move($path, $filename);
 
         return '/uploads/'.$folder.'/'.$filename;
+    }
+
+    private function dispatchPromoBroadcast(Promo $promo): void
+    {
+        $templateService = app(WhatsappMessageTemplateService::class);
+
+        User::query()
+            ->where('is_active', true)
+            ->whereHas('role', function ($query) {
+                $query->where('nama_role', 'user');
+            })
+            ->select('id_user', 'nama', 'no_hp')
+            ->orderBy('id_user')
+            ->chunk(200, function ($users) use ($promo, $templateService) {
+                foreach ($users as $user) {
+                    if (! $user->no_hp) {
+                        continue;
+                    }
+
+                    $message = $templateService->buildPromoBroadcastMessage($promo, $user);
+
+                    SendWhatsappMessageJob::dispatch(
+                        event: 'promo_broadcast',
+                        recipientUserId: (int) $user->id_user,
+                        targetPhone: (string) $user->no_hp,
+                        message: $message,
+                        bookingId: null,
+                        statusBookingAtSend: null,
+                    );
+                }
+            });
     }
 }

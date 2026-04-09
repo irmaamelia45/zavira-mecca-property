@@ -145,13 +145,13 @@ export default function KprManagement() {
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="admin-page space-y-6 animate-in fade-in duration-500">
+            <div className="admin-page-head flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Dashboard Admin – Kelola Informasi KPR</h1>
-                    <p className="text-gray-500 text-sm">Tambah, edit, dan hapus konten KPR untuk ditampilkan ke user.</p>
+                    <h1 className="admin-page-title text-2xl font-bold text-gray-900">Dashboard Admin - Kelola Informasi KPR</h1>
+                    <p className="admin-page-subtitle text-gray-500 text-sm">Tambah, edit, dan hapus konten KPR untuk ditampilkan ke user.</p>
                 </div>
-                <Button onClick={handleOpenForm}>
+                <Button onClick={handleOpenForm} className="w-full sm:w-auto">
                     <FaPlus className="mr-2" /> Tambah Informasi KPR
                 </Button>
             </div>
@@ -235,8 +235,8 @@ export default function KprManagement() {
                         <div className="px-6 py-4 text-sm text-red-600 border-b border-gray-100">{error}</div>
                     )}
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-[13px] text-left min-w-[900px]">
+                    <div className="overflow-x-auto responsive-table-wrap">
+                        <table className="admin-table w-full text-[13px] text-left min-w-[900px]">
                             <thead className="bg-[#f8fafc] text-gray-500 font-semibold uppercase text-[10px] tracking-[0.06em]">
                                 <tr>
                                     <th className="px-6 py-4">Judul</th>
@@ -299,3 +299,4 @@ export default function KprManagement() {
         </div>
     );
 }
+

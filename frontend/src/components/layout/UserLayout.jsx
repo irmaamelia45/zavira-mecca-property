@@ -7,7 +7,7 @@ export default function UserLayout() {
     return (
         <div className="flex flex-col min-h-screen bg-[#fdfbf6]">
             <Navbar />
-            <main className="flex-grow pt-[72px]">
+            <main className="flex-grow pt-[68px] sm:pt-[72px] md:pt-[84px]">
                 <Outlet />
             </main>
             <Footer />

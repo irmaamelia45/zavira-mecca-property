@@ -21,6 +21,9 @@ export const emptyPropertyForm = {
     facilities: [],
     marketingName: '',
     marketingWhatsapp: '',
+    unitBlocks: [
+        { blockName: 'Blok A', unitCount: 1 },
+    ],
 };
 
 export const normalizeImageSlots = (images = []) => {
@@ -56,6 +59,17 @@ export const mapApiPropertyToForm = (property) => ({
     facilities: Array.isArray(property?.facilities) ? property.facilities : [],
     marketingName: property?.marketingName || '',
     marketingWhatsapp: property?.marketingWhatsapp || '',
+    unitBlocks: Array.isArray(property?.blockConfig) && property.blockConfig.length
+        ? property.blockConfig.map((item) => ({
+            blockName: item?.blockName || '',
+            unitCount: Number(item?.unitCount) || 0,
+        }))
+        : [
+            {
+                blockName: 'Blok A',
+                unitCount: Number(property?.totalUnits) || 1,
+            },
+        ],
 });
 
 export const appendPropertyFormData = (formData, imageSlots, options = {}) => {
@@ -80,6 +94,7 @@ export const appendPropertyFormData = (formData, imageSlots, options = {}) => {
     payload.append('fasilitas', JSON.stringify(formData.facilities || []));
     payload.append('nama_marketing', formData.marketingName || '');
     payload.append('whatsapp_marketing', formData.marketingWhatsapp || '');
+    payload.append('block_payload', JSON.stringify(formData.unitBlocks || []));
 
     const mediaPayload = imageSlots.map((slot) => ({
         index: slot.index,

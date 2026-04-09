@@ -245,10 +245,10 @@ export default function KprInfo() {
 
                 <section
                 id="detail"
-                className="rounded-[28px] bg-gradient-to-br from-secondary-50 via-white to-secondary-100 border border-secondary-200 p-6 md:p-10"
+                className="rounded-[28px] p-6 md:p-10"
             >
                 <div>
-                    <div className="rounded-2xl bg-white p-6 shadow-sm space-y-6 w-full">
+                    <div className="rounded-[28px] bg-white p-6 md:p-10 shadow-sm space-y-6 w-full">
                         <div className="flex items-center gap-3">
                             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 text-primary-700">
                                 <activeDetail.icon className="text-2xl" />

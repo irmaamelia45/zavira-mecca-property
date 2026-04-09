@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { Card, CardContent } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
-import { FaCloudUploadAlt, FaFilePdf, FaImage, FaCheckCircle, FaSpinner } from 'react-icons/fa';
-import { API_BASE, mapPromoFromApi, getPromoPricing as calculatePromoPricing } from '../utils/promo';
+import { FaCloudUploadAlt, FaFilePdf, FaCheckCircle, FaSpinner } from 'react-icons/fa';
+import { API_BASE, getPromoPricing as calculatePromoPricing, mapPromoFromApi } from '../utils/promo';
 import { authHeaders, getStoredUser } from '../lib/auth';
+import { normalizePhone62 } from '../lib/phone';
 
 export default function Booking() {
     const { id } = useParams();
+    const location = useLocation();
     const navigate = useNavigate();
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -28,9 +30,12 @@ export default function Booking() {
         gaji_bulanan: '',
     });
 
-    // Form State
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
+
+    const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+    const selectedUnitId = String(location.state?.selectedUnitId || queryParams.get('unitId') || '');
+    const selectedUnitCode = String(location.state?.selectedUnitCode || queryParams.get('unitCode') || '');
 
     const extractApiError = (data, fallback) => {
         if (data?.errors && typeof data.errors === 'object') {
@@ -86,7 +91,12 @@ export default function Booking() {
                 throw new Error('Data perumahan tidak ditemukan.');
             }
 
+            if (!selectedUnitId) {
+                throw new Error('Silakan pilih blok unit di halaman detail perumahan terlebih dahulu.');
+            }
+
             payload.append('id_perumahan', String(property.id));
+            payload.append('id_unit_perumahan', selectedUnitId);
             payload.append('pekerjaan', userForm.pekerjaan);
             payload.append('jenis_pekerjaan', userForm.jenis_pekerjaan);
             payload.append('gaji_bulanan', String(parseCurrencyInput(userForm.gaji_bulanan) || '0'));
@@ -95,9 +105,7 @@ export default function Booking() {
                 throw new Error('Mohon upload 1 file PDF gabungan KTP dan slip gaji.');
             }
 
-            if (file) {
-                payload.append('dokumen', file);
-            }
+            payload.append('dokumen', file);
 
             const response = await fetch(`${API_BASE}/api/bookings`, {
                 method: 'POST',
@@ -113,7 +121,7 @@ export default function Booking() {
             setSubmitting(false);
             setSuccess(true);
             setTimeout(() => {
-                navigate('/'); // Redirect to home or dashboard
+                navigate('/');
             }, 3000);
         } catch (err) {
             setFormError(err.message || 'Gagal mengirim booking.');
@@ -151,7 +159,7 @@ export default function Booking() {
             setUserForm((prev) => ({
                 ...prev,
                 nama: user.nama || '',
-                no_hp: user.no_hp || '',
+                no_hp: normalizePhone62(user.no_hp || ''),
                 email: user.email || '',
                 alamat: user.alamat || '',
             }));
@@ -168,7 +176,7 @@ export default function Booking() {
                 const data = await response.json();
                 setPromos((data || []).map(mapPromoFromApi));
             } catch (err) {
-                // Silent fail for booking pricing
+                setPromos([]);
             }
         };
 
@@ -177,7 +185,6 @@ export default function Booking() {
 
     const basePrice = Number(property?.price) || 0;
     const promoPricing = calculatePromoPricing(promos, property?.id, basePrice);
-
     const finalPrice = Math.max(0, basePrice - promoPricing.discount);
 
     if (propertyLoading) {
@@ -218,12 +225,29 @@ export default function Booking() {
         );
     }
 
+    if (!selectedUnitId) {
+        return (
+            <div className="container-custom py-20 max-w-2xl">
+                <Card className="border border-amber-200 bg-amber-50 shadow-sm">
+                    <CardContent className="p-8 text-center space-y-4">
+                        <h2 className="text-2xl font-bold text-amber-900">Pilih Unit Terlebih Dahulu</h2>
+                        <p className="text-sm text-amber-800">
+                            Untuk melanjutkan booking, silakan pilih blok dan unit di halaman detail perumahan.
+                        </p>
+                        <Button onClick={() => navigate(`/perumahan/${property.id}`)} className="w-full sm:w-auto">
+                            Kembali ke Detail Perumahan
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
     return (
         <div className="container-custom py-10 max-w-5xl animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h1 className="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-8 text-center">Formulir Booking Unit</h1>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {/* Info Column */}
                 <div className="md:col-span-1 space-y-6">
                     <Card className="bg-primary-900 text-white border-none shadow-xl sticky top-24">
                         <CardContent className="p-8">
@@ -232,6 +256,10 @@ export default function Booking() {
                                 <div>
                                     <span className="block text-xs uppercase opacity-70 mb-1">Properti</span>
                                     <p className="font-semibold text-lg text-white">{property.name}</p>
+                                </div>
+                                <div>
+                                    <span className="block text-xs uppercase opacity-70 mb-1">Unit Terpilih</span>
+                                    <p className="font-semibold text-white">{selectedUnitCode || selectedUnitId}</p>
                                 </div>
                                 <div>
                                     <span className="block text-xs uppercase opacity-70 mb-1">Tipe</span>
@@ -264,7 +292,6 @@ export default function Booking() {
                     </Card>
                 </div>
 
-                {/* Form Column */}
                 <div className="md:col-span-2">
                     <Card className="shadow-xl border-gray-100 bg-white">
                         <CardContent className="p-8">
@@ -284,9 +311,9 @@ export default function Booking() {
                                         />
                                         <Input
                                             label="No. WhatsApp"
-                                            placeholder="0812..."
+                                            placeholder="628xxxxxxxxxx"
                                             value={userForm.no_hp}
-                                            onChange={(e) => setUserForm((prev) => ({ ...prev, no_hp: e.target.value }))}
+                                            onChange={(e) => setUserForm((prev) => ({ ...prev, no_hp: normalizePhone62(e.target.value) }))}
                                             required
                                         />
                                     </div>

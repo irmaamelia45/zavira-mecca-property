@@ -5,6 +5,7 @@ import Input from '../components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { API_BASE } from '../utils/promo';
 import { saveAuth } from '../lib/auth';
+import { isValidPhone62, normalizePhone62 } from '../lib/phone';
 
 export default function Register() {
     const navigate = useNavigate();
@@ -47,7 +48,7 @@ export default function Register() {
         const nextErrors = {};
         const trimmedName = name.trim();
         const trimmedEmail = email.trim();
-        const trimmedPhone = phone.trim();
+        const trimmedPhone = normalizePhone62(phone.trim());
 
         if (!trimmedName) {
             nextErrors.nama = 'Nama lengkap wajib diisi.';
@@ -61,8 +62,8 @@ export default function Register() {
 
         if (!trimmedPhone) {
             nextErrors.no_hp = 'Nomor WhatsApp wajib diisi.';
-        } else if (!/^(?:\+62|62|0)8[0-9]{7,13}$/.test(trimmedPhone)) {
-            nextErrors.no_hp = 'Format nomor WhatsApp tidak valid.';
+        } else if (!isValidPhone62(trimmedPhone)) {
+            nextErrors.no_hp = 'Format nomor WhatsApp harus 62xxxx.';
         }
 
         if (!password) {
@@ -112,7 +113,7 @@ export default function Register() {
                 body: JSON.stringify({
                     nama: name.trim(),
                     email: email.trim(),
-                    no_hp: phone.trim(),
+                    no_hp: normalizePhone62(phone.trim()),
                     password,
                     password_confirmation: confirmPassword,
                     device_name: 'web',
@@ -193,10 +194,10 @@ export default function Register() {
                         />
                         <Input
                             label="No. WhatsApp"
-                            placeholder="08xxxxxxxxxx"
+                            placeholder="628xxxxxxxxxx"
                             value={phone}
                             onChange={(e) => {
-                                setPhone(e.target.value);
+                                setPhone(normalizePhone62(e.target.value));
                                 clearFieldError('no_hp');
                             }}
                             error={fieldErrors.no_hp}

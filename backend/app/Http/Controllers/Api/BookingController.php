@@ -3,12 +3,18 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendWhatsappMessageJob;
 use App\Models\Booking;
 use App\Models\DocBooking;
 use App\Models\Perumahan;
+use App\Models\PerumahanUnit;
+use App\Models\User;
+use App\Services\Whatsapp\WhatsappMessageTemplateService;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class BookingController extends Controller
 {
@@ -16,7 +22,10 @@ class BookingController extends Controller
     {
         $bookings = Booking::query()
             ->where('id_user', $request->user()->id_user)
-            ->with('perumahan:id_perumahan,nama_perumahan,lokasi,harga')
+            ->with([
+                'perumahan:id_perumahan,nama_perumahan,lokasi,harga',
+                'unitPerumahan:id_unit_perumahan,id_perumahan,nama_blok,kode_blok,kode_unit,status_unit',
+            ])
             ->orderByDesc('created_at')
             ->get();
 
@@ -30,6 +39,7 @@ class BookingController extends Controller
             ->with([
                 'perumahan:id_perumahan,nama_perumahan,lokasi,harga',
                 'documents:id_doc_booking,id_booking,jenis_dokumen,nama_file,path_file,mime_type,file_size_kb,uploaded_at',
+                'unitPerumahan:id_unit_perumahan,id_perumahan,nama_blok,kode_blok,kode_unit,status_unit',
             ])
             ->find($id);
 
@@ -47,6 +57,7 @@ class BookingController extends Controller
                 'user:id_user,nama,email,no_hp',
                 'perumahan:id_perumahan,nama_perumahan,tipe_unit,lokasi,harga',
                 'documents:id_doc_booking,id_booking,jenis_dokumen,nama_file,path_file,mime_type,file_size_kb,uploaded_at',
+                'unitPerumahan:id_unit_perumahan,id_perumahan,nama_blok,kode_blok,kode_unit,status_unit',
             ])
             ->orderByDesc('tanggal_booking');
 
@@ -66,6 +77,7 @@ class BookingController extends Controller
                 'user:id_user,nama,email,no_hp',
                 'perumahan:id_perumahan,nama_perumahan,tipe_unit,lokasi,harga',
                 'documents:id_doc_booking,id_booking,jenis_dokumen,nama_file,path_file,mime_type,file_size_kb,uploaded_at',
+                'unitPerumahan:id_unit_perumahan,id_perumahan,nama_blok,kode_blok,kode_unit,status_unit',
             ])
             ->find($id);
 
@@ -78,14 +90,6 @@ class BookingController extends Controller
 
     public function updateStatusAdmin(Request $request, $id)
     {
-        $booking = Booking::query()
-            ->with(['perumahan:id_perumahan,jumlah_unit_tersedia'])
-            ->find($id);
-
-        if (! $booking) {
-            return response()->json(['message' => 'Booking tidak ditemukan.'], 404);
-        }
-
         $validated = $request->validate([
             'status_booking' => [
                 'required',
@@ -102,46 +106,98 @@ class BookingController extends Controller
         ]);
 
         $nextStatus = $validated['status_booking'];
-        $previousStatus = $booking->status_booking;
 
-        $attributes = [
-            'status_booking' => $nextStatus,
-            'catatan_admin' => $validated['catatan_admin'] ?? $booking->catatan_admin,
-        ];
+        $result = DB::transaction(function () use ($id, $validated, $nextStatus) {
+            $booking = Booking::query()
+                ->with(['perumahan:id_perumahan,jumlah_unit_tersedia'])
+                ->lockForUpdate()
+                ->find($id);
 
-        if ($nextStatus === 'Disetujui' && $previousStatus !== 'Disetujui') {
-            $attributes['approved_at'] = now();
-            if ($booking->perumahan && $booking->perumahan->jumlah_unit_tersedia > 0) {
-                Perumahan::query()
-                    ->where('id_perumahan', $booking->perumahan->id_perumahan)
-                    ->decrement('jumlah_unit_tersedia', 1);
+            if (! $booking) {
+                return null;
             }
-        }
 
-        if ($nextStatus === 'Ditolak' && $previousStatus !== 'Ditolak') {
-            $attributes['rejected_at'] = now();
-        }
+            $previousStatus = $booking->status_booking;
+            $attributes = [
+                'status_booking' => $nextStatus,
+                'catatan_admin' => $validated['catatan_admin'] ?? $booking->catatan_admin,
+            ];
 
-        if ($nextStatus === 'Dibatalkan' && $previousStatus !== 'Dibatalkan') {
-            $attributes['canceled_at'] = now();
-            if ($previousStatus === 'Disetujui' && $booking->perumahan) {
-                Perumahan::query()
-                    ->where('id_perumahan', $booking->perumahan->id_perumahan)
-                    ->increment('jumlah_unit_tersedia', 1);
+            if ($nextStatus === 'Disetujui' && $previousStatus !== 'Disetujui') {
+                $attributes['approved_at'] = now();
             }
+
+            if ($nextStatus === 'Ditolak' && $previousStatus !== 'Ditolak') {
+                $attributes['rejected_at'] = now();
+            }
+
+            if ($nextStatus === 'Dibatalkan' && $previousStatus !== 'Dibatalkan') {
+                $attributes['canceled_at'] = now();
+            }
+
+            if ($nextStatus === 'Selesai' && $previousStatus !== 'Selesai') {
+                $attributes['finished_at'] = now();
+            }
+
+            $booking->update($attributes);
+
+            $unit = null;
+            if ($booking->id_unit_perumahan) {
+                $unit = PerumahanUnit::query()
+                    ->where('id_unit_perumahan', $booking->id_unit_perumahan)
+                    ->where('id_perumahan', $booking->id_perumahan)
+                    ->lockForUpdate()
+                    ->first();
+            }
+
+            if ($unit) {
+                $previousUnitStatus = $unit->status_unit;
+                $nextUnitStatus = $this->mapBookingStatusToUnitStatus($nextStatus);
+
+                if ($previousUnitStatus !== $nextUnitStatus) {
+                    $this->syncAvailableUnitCounter($booking->id_perumahan, $previousUnitStatus, $nextUnitStatus);
+                }
+
+                $unit->status_unit = $nextUnitStatus;
+                $unit->id_booking_terakhir = $nextUnitStatus === 'available'
+                    ? null
+                    : $booking->id_booking;
+                $unit->save();
+            } else {
+                if ($nextStatus === 'Disetujui' && $previousStatus !== 'Disetujui') {
+                    $this->syncAvailableUnitCounter($booking->id_perumahan, 'available', 'pending');
+                }
+
+                if (
+                    $nextStatus === 'Dibatalkan'
+                    && $previousStatus === 'Disetujui'
+                ) {
+                    $this->syncAvailableUnitCounter($booking->id_perumahan, 'pending', 'available');
+                }
+            }
+
+            $booking->load([
+                'user:id_user,nama,email,no_hp',
+                'perumahan:id_perumahan,nama_perumahan,tipe_unit,lokasi,harga',
+                'documents:id_doc_booking,id_booking,jenis_dokumen,nama_file,path_file,mime_type,file_size_kb,uploaded_at',
+                'unitPerumahan:id_unit_perumahan,id_perumahan,nama_blok,kode_blok,kode_unit,status_unit',
+            ]);
+
+            return [
+                'booking' => $booking,
+                'previous_status' => $previousStatus,
+            ];
+        });
+
+        if (! $result) {
+            return response()->json(['message' => 'Booking tidak ditemukan.'], 404);
         }
 
-        if ($nextStatus === 'Selesai' && $previousStatus !== 'Selesai') {
-            $attributes['finished_at'] = now();
+        $booking = $result['booking'];
+        $previousStatus = (string) $result['previous_status'];
+        if ($previousStatus !== (string) $booking->status_booking) {
+            $this->dispatchBookingStatusChangedNotification($booking);
         }
-
-        $booking->update($attributes);
-
-        $booking->load([
-            'user:id_user,nama,email,no_hp',
-            'perumahan:id_perumahan,nama_perumahan,tipe_unit,lokasi,harga',
-            'documents:id_doc_booking,id_booking,jenis_dokumen,nama_file,path_file,mime_type,file_size_kb,uploaded_at',
-        ]);
 
         return response()->json([
             'message' => 'Status booking berhasil diperbarui.',
@@ -153,6 +209,7 @@ class BookingController extends Controller
     {
         $validated = $request->validate([
             'id_perumahan' => 'required|integer|exists:perumahan,id_perumahan',
+            'id_unit_perumahan' => 'required|integer',
             'catatan_user' => 'nullable|string|max:255',
             'pekerjaan' => 'required|string|max:100',
             'jenis_pekerjaan' => ['required', Rule::in(['fixed_income', 'non_fixed_income'])],
@@ -160,47 +217,143 @@ class BookingController extends Controller
             'dokumen' => 'required|file|mimes:pdf|max:5120',
         ]);
 
-        $booking = Booking::create([
-            'id_user' => $request->user()->id_user,
-            'id_perumahan' => $validated['id_perumahan'],
-            'kode_booking' => $this->generateBookingCode(),
-            'status_booking' => 'Menunggu',
-            'catatan_user' => $validated['catatan_user'] ?? null,
-            'pekerjaan' => $validated['pekerjaan'],
-            'jenis_pekerjaan' => $validated['jenis_pekerjaan'],
-            'gaji_bulanan' => $validated['gaji_bulanan'],
-        ]);
+        $booking = DB::transaction(function () use ($request, $validated) {
+            $unit = PerumahanUnit::query()
+                ->where('id_unit_perumahan', $validated['id_unit_perumahan'])
+                ->where('id_perumahan', $validated['id_perumahan'])
+                ->lockForUpdate()
+                ->first();
 
-        if ($request->hasFile('dokumen')) {
-            $file = $request->file('dokumen');
-            $ext = $file->getClientOriginalExtension() ?: 'bin';
-            $mimeType = $file->getMimeType() ?: $file->getClientMimeType() ?: 'application/octet-stream';
-            $fileSizeKb = (int) ceil(($file->getSize() ?: 0) / 1024);
-            $filename = Str::uuid()->toString().'.'.$ext;
-            $directory = public_path('uploads/booking-documents');
-
-            if (! is_dir($directory)) {
-                mkdir($directory, 0755, true);
+            if (! $unit) {
+                throw ValidationException::withMessages([
+                    'id_unit_perumahan' => ['Unit tidak ditemukan pada perumahan yang dipilih.'],
+                ]);
             }
 
-            $file->move($directory, $filename);
+            if ($unit->status_unit !== 'available') {
+                throw ValidationException::withMessages([
+                    'id_unit_perumahan' => ['Unit sudah tidak tersedia. Silakan pilih unit lain.'],
+                ]);
+            }
 
-            DocBooking::create([
-                'id_booking' => $booking->id_booking,
-                'jenis_dokumen' => 'Dokumen Booking',
-                'nama_file' => $file->getClientOriginalName(),
-                'path_file' => '/uploads/booking-documents/'.$filename,
-                'mime_type' => $mimeType,
-                'file_size_kb' => $fileSizeKb,
+            $booking = Booking::create([
+                'id_user' => $request->user()->id_user,
+                'id_perumahan' => $validated['id_perumahan'],
+                'id_unit_perumahan' => $unit->id_unit_perumahan,
+                'kode_booking' => $this->generateBookingCode(),
+                'status_booking' => 'Menunggu',
+                'catatan_user' => $validated['catatan_user'] ?? null,
+                'pekerjaan' => $validated['pekerjaan'],
+                'jenis_pekerjaan' => $validated['jenis_pekerjaan'],
+                'gaji_bulanan' => $validated['gaji_bulanan'],
             ]);
-        }
 
-        $booking->load('perumahan:id_perumahan,nama_perumahan,lokasi,harga');
+            if ($request->hasFile('dokumen')) {
+                $file = $request->file('dokumen');
+                $ext = $file->getClientOriginalExtension() ?: 'bin';
+                $mimeType = $file->getMimeType() ?: $file->getClientMimeType() ?: 'application/octet-stream';
+                $fileSizeKb = (int) ceil(($file->getSize() ?: 0) / 1024);
+                $filename = Str::uuid()->toString().'.'.$ext;
+                $directory = public_path('uploads/booking-documents');
+
+                if (! is_dir($directory)) {
+                    mkdir($directory, 0755, true);
+                }
+
+                $file->move($directory, $filename);
+
+                DocBooking::create([
+                    'id_booking' => $booking->id_booking,
+                    'jenis_dokumen' => 'Dokumen Booking',
+                    'nama_file' => $file->getClientOriginalName(),
+                    'path_file' => '/uploads/booking-documents/'.$filename,
+                    'mime_type' => $mimeType,
+                    'file_size_kb' => $fileSizeKb,
+                ]);
+            }
+
+            $unit->update([
+                'status_unit' => 'pending',
+                'id_booking_terakhir' => $booking->id_booking,
+            ]);
+
+            $this->syncAvailableUnitCounter($booking->id_perumahan, 'available', 'pending');
+
+            return $booking->fresh([
+                'user:id_user,nama,no_hp',
+                'perumahan:id_perumahan,nama_perumahan,lokasi,harga',
+                'unitPerumahan:id_unit_perumahan,id_perumahan,nama_blok,kode_blok,kode_unit,status_unit',
+            ]);
+        });
+
+        $this->dispatchBookingCreatedNotifications($booking);
 
         return response()->json([
             'message' => 'Booking berhasil diajukan.',
             'booking' => $this->formatBooking($booking),
         ], 201);
+    }
+
+    private function dispatchBookingCreatedNotifications(Booking $booking): void
+    {
+        $templateService = app(WhatsappMessageTemplateService::class);
+
+        $admins = User::query()
+            ->where('is_active', true)
+            ->whereHas('role', function ($query) {
+                $query->whereIn('nama_role', ['admin', 'superadmin']);
+            })
+            ->get(['id_user', 'nama', 'no_hp']);
+
+        $messageToAdmin = $templateService->buildAdminBookingMasukMessage($booking);
+        foreach ($admins as $admin) {
+            if (! $admin->no_hp) {
+                continue;
+            }
+
+            SendWhatsappMessageJob::dispatch(
+                event: 'new_booking_admin',
+                recipientUserId: (int) $admin->id_user,
+                targetPhone: (string) $admin->no_hp,
+                message: $messageToAdmin,
+                bookingId: (int) $booking->id_booking,
+                statusBookingAtSend: (string) $booking->status_booking,
+            );
+        }
+
+        if (! $booking->user?->no_hp) {
+            return;
+        }
+
+        $messageToUser = $templateService->buildUserBookingCreatedMessage($booking);
+
+        SendWhatsappMessageJob::dispatch(
+            event: 'new_booking_user',
+            recipientUserId: (int) $booking->user->id_user,
+            targetPhone: (string) $booking->user->no_hp,
+            message: $messageToUser,
+            bookingId: (int) $booking->id_booking,
+            statusBookingAtSend: (string) $booking->status_booking,
+        );
+    }
+
+    private function dispatchBookingStatusChangedNotification(Booking $booking): void
+    {
+        if (! $booking->user?->no_hp) {
+            return;
+        }
+
+        $templateService = app(WhatsappMessageTemplateService::class);
+        $message = $templateService->buildUserBookingStatusChangedMessage($booking);
+
+        SendWhatsappMessageJob::dispatch(
+            event: 'booking_status',
+            recipientUserId: (int) $booking->user->id_user,
+            targetPhone: (string) $booking->user->no_hp,
+            message: $message,
+            bookingId: (int) $booking->id_booking,
+            statusBookingAtSend: (string) $booking->status_booking,
+        );
     }
 
     private function generateBookingCode(): string
@@ -210,6 +363,47 @@ class BookingController extends Controller
         } while (Booking::query()->where('kode_booking', $code)->exists());
 
         return $code;
+    }
+
+    private function mapBookingStatusToUnitStatus(string $bookingStatus): string
+    {
+        if ($bookingStatus === 'Selesai') {
+            return 'sold';
+        }
+
+        if (in_array($bookingStatus, ['Ditolak', 'Dibatalkan'], true)) {
+            return 'available';
+        }
+
+        return 'pending';
+    }
+
+    private function syncAvailableUnitCounter(int $propertyId, string $fromStatus, string $toStatus): void
+    {
+        $fromAvailable = $fromStatus === 'available';
+        $toAvailable = $toStatus === 'available';
+
+        if ($fromAvailable === $toAvailable) {
+            return;
+        }
+
+        $property = Perumahan::query()
+            ->where('id_perumahan', $propertyId)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $property) {
+            return;
+        }
+
+        $current = (int) $property->jumlah_unit_tersedia;
+        if ($fromAvailable && ! $toAvailable) {
+            $property->jumlah_unit_tersedia = max(0, $current - 1);
+        } elseif (! $fromAvailable && $toAvailable) {
+            $property->jumlah_unit_tersedia = min((int) $property->jumlah_seluruh_unit, $current + 1);
+        }
+
+        $property->save();
     }
 
     private function formatBooking(Booking $booking): array
@@ -242,6 +436,13 @@ class BookingController extends Controller
             'finished_at' => optional($booking->finished_at)->toDateTimeString(),
             'cancel_reason' => $booking->cancel_reason,
             'cancel_note' => $booking->cancel_note,
+            'unit' => [
+                'id' => $booking->unitPerumahan?->id_unit_perumahan,
+                'block_name' => $booking->unitPerumahan?->nama_blok,
+                'block_code' => $booking->unitPerumahan?->kode_blok,
+                'code' => $booking->unitPerumahan?->kode_unit,
+                'status' => $booking->unitPerumahan?->status_unit,
+            ],
             'perumahan' => [
                 'id' => $booking->perumahan?->id_perumahan,
                 'nama' => $booking->perumahan?->nama_perumahan,
@@ -269,6 +470,13 @@ class BookingController extends Controller
             'code' => $booking->kode_booking,
             'date' => optional($booking->tanggal_booking)->toDateTimeString(),
             'status' => $booking->status_booking,
+            'unit' => [
+                'id' => $booking->unitPerumahan?->id_unit_perumahan,
+                'block_name' => $booking->unitPerumahan?->nama_blok,
+                'block_code' => $booking->unitPerumahan?->kode_blok,
+                'code' => $booking->unitPerumahan?->kode_unit,
+                'status' => $booking->unitPerumahan?->status_unit,
+            ],
             'user' => [
                 'id' => $booking->user?->id_user,
                 'name' => $booking->user?->nama,

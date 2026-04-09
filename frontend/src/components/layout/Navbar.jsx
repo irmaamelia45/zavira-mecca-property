@@ -70,25 +70,25 @@ export default function Navbar() {
     return (
         <nav className={cn(
             "fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b border-transparent",
-            isScrolled ? "bg-[#f8f2e6]/95 backdrop-blur-md shadow-sm border-secondary-200 py-3" : "bg-[#fdfbf6]/90 backdrop-blur-md py-5"
+            isScrolled ? "bg-[#f8f2e6]/95 backdrop-blur-md shadow-sm border-secondary-200 py-3" : "bg-[#fdfbf6]/90 backdrop-blur-md py-3 sm:py-4 md:py-5"
         )}>
             <div className="container-custom flex items-center justify-between">
                 {/* Logo */}
-                <Link to="/" className="flex items-center gap-3 group">
+                <Link to="/" className="flex items-center gap-2.5 md:gap-3 group min-w-0">
                     <img
                         src={logoPt}
                         alt="Zavira Mecca Property"
-                        className="h-10 w-auto object-contain"
+                        className="h-9 md:h-10 w-auto object-contain shrink-0"
                         loading="eager"
                         decoding="async"
                     />
-                    <span className="font-serif text-xl font-bold tracking-tight text-secondary-600 group-hover:text-secondary-700 transition-colors">
+                    <span className="font-serif text-sm sm:text-base md:text-xl font-bold tracking-tight text-secondary-600 group-hover:text-secondary-700 transition-colors truncate">
                         Zavira Mecca Property
                     </span>
                 </Link>
 
                 {/* Desktop Nav */}
-                <div className="hidden md:flex items-center gap-8">
+                <div className="hidden md:flex items-center gap-6 xl:gap-8">
                     {navLinks.map((link) => (
                         <Link
                             key={link.path}
@@ -131,14 +131,18 @@ export default function Navbar() {
                 </div>
 
                 {/* Mobile Toggle */}
-                <button className="md:hidden p-2 text-gray-600" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+                <button
+                    className="md:hidden p-2 text-gray-700 rounded-lg border border-secondary-200 bg-white/90"
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    aria-label={mobileMenuOpen ? 'Tutup menu' : 'Buka menu'}
+                >
                     {mobileMenuOpen ? <FiX size={24} /> : <FiMenu size={24} />}
                 </button>
             </div>
 
             {/* Mobile Menu */}
             {mobileMenuOpen && (
-                <div className="md:hidden absolute top-full left-0 right-0 bg-white border-b border-gray-100 shadow-lg p-4 flex flex-col gap-4 animate-in slide-in-from-top-4">
+                <div className="md:hidden absolute top-full left-0 right-0 bg-white border-b border-gray-100 shadow-lg p-4 flex max-h-[calc(100vh-4.75rem)] overflow-y-auto flex-col gap-4 animate-in slide-in-from-top-4">
                     {navLinks.map((link) => (
                         <Link
                             key={link.path}

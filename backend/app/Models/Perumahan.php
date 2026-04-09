@@ -69,4 +69,9 @@ class Perumahan extends Model
     {
         return $this->hasMany(Booking::class, 'id_perumahan', 'id_perumahan');
     }
+
+    public function units()
+    {
+        return $this->hasMany(PerumahanUnit::class, 'id_perumahan', 'id_perumahan');
+    }
 }

@@ -13,18 +13,24 @@ use Illuminate\Validation\Rules\Password;
 class AuthController extends Controller
 {
     private const GMAIL_RULE = 'regex:/^[A-Za-z0-9._%+-]+@gmail\\.com$/i';
+    private const PHONE_RULE = 'regex:/^628[0-9]{7,13}$/';
 
     public function register(Request $request)
     {
+        $request->merge([
+            'no_hp' => $this->normalizePhone62((string) $request->input('no_hp')),
+        ]);
+
         $validated = $request->validate([
             'nama' => 'required|string|max:100',
             'email' => ['required', 'email', 'max:120', self::GMAIL_RULE, 'unique:user,email'],
-            'no_hp' => ['required', 'string', 'min:10', 'max:20', 'regex:/^(?:\\+62|62|0)8[0-9]{7,13}$/', 'unique:user,no_hp'],
+            'no_hp' => ['required', 'string', 'min:10', 'max:20', self::PHONE_RULE, 'unique:user,no_hp'],
             'password' => ['required', 'confirmed', Password::min(8)],
             'alamat' => 'nullable|string|max:255',
             'device_name' => 'nullable|string|max:100',
         ], [
             'email.regex' => 'Email harus menggunakan domain @gmail.com.',
+            'no_hp.regex' => 'Nomor HP harus menggunakan format 62xxxx.',
         ]);
 
         $userRole = Role::query()->where('nama_role', 'user')->first();
@@ -102,13 +108,18 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
+        $request->merge([
+            'no_hp' => $this->normalizePhone62((string) $request->input('no_hp')),
+        ]);
+
         $validated = $request->validate([
             'nama' => 'required|string|max:100',
             'email' => ['required', 'email', 'max:120', self::GMAIL_RULE, 'unique:user,email,'.$user->id_user.',id_user'],
-            'no_hp' => ['required', 'string', 'min:10', 'max:20', 'regex:/^(?:\\+62|62|0)8[0-9]{7,13}$/', 'unique:user,no_hp,'.$user->id_user.',id_user'],
+            'no_hp' => ['required', 'string', 'min:10', 'max:20', self::PHONE_RULE, 'unique:user,no_hp,'.$user->id_user.',id_user'],
             'alamat' => 'nullable|string|max:255',
         ], [
             'email.regex' => 'Email harus menggunakan domain @gmail.com.',
+            'no_hp.regex' => 'Nomor HP harus menggunakan format 62xxxx.',
         ]);
 
         $user->update($validated);
@@ -179,5 +190,31 @@ class AuthController extends Controller
             'is_active' => (bool) $user->is_active,
             'role' => $role?->nama_role ?? 'user',
         ];
+    }
+
+    private function normalizePhone62(string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+        if ($digits === '') {
+            return '';
+        }
+
+        $digits = preg_replace('/^00+/', '', $digits) ?? $digits;
+
+        if (str_starts_with($digits, '62')) {
+            $localPart = preg_replace('/^0+/', '', substr($digits, 2)) ?? substr($digits, 2);
+            return '62'.$localPart;
+        }
+
+        if (str_starts_with($digits, '0')) {
+            $localPart = preg_replace('/^0+/', '', $digits) ?? $digits;
+            return '62'.$localPart;
+        }
+
+        if (str_starts_with($digits, '8')) {
+            return '62'.$digits;
+        }
+
+        return '62'.preg_replace('/^62/', '', $digits);
     }
 }

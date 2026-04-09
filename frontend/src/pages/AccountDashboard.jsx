@@ -253,13 +253,13 @@ export default function AccountDashboard() {
                 </p>
                 <div className="mt-6 flex flex-wrap gap-3">
                     <Link to="/akun/profil">
-                        <Button className="bg-white text-primary-800 hover:bg-gray-100">Profile</Button>
+                        <Button className="bg-white text-primary-800 hover:bg-gray-100 w-full sm:w-auto">Profile</Button>
                     </Link>
                     <Link to="/akun/booking">
-                        <Button variant="outline" className="border-white text-white hover:bg-white/10">Riwayat Booking</Button>
+                        <Button variant="outline" className="border-white text-white hover:bg-white/10 w-full sm:w-auto">Riwayat Booking</Button>
                     </Link>
                     <Link to="/akun/favorit">
-                        <Button variant="outline" className="border-white text-white hover:bg-white/10">Perumahan Favorit</Button>
+                        <Button variant="outline" className="border-white text-white hover:bg-white/10 w-full sm:w-auto">Perumahan Favorit</Button>
                     </Link>
                 </div>
             </div>
@@ -394,7 +394,7 @@ export default function AccountDashboard() {
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <Link to={`/akun/booking/${booking.id}`}>
-                                            <Button variant="outline" size="sm" className="min-w-[125px]">Detail Booking</Button>
+                                            <Button variant="outline" size="sm" className="min-w-[125px] w-full sm:w-auto">Detail Booking</Button>
                                         </Link>
                                     </div>
                                 </div>
