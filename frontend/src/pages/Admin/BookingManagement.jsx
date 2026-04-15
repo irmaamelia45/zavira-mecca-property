@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { Card, CardContent } from '../../components/ui/Card';
-import { FaHome, FaSearch, FaSyncAlt } from 'react-icons/fa';
+import { FaSearch, FaClipboardList, FaClock, FaCheckCircle, FaFlagCheckered, FaSlidersH, FaChevronDown, FaChevronUp, FaCheck } from 'react-icons/fa';
 import { FiDownload } from 'react-icons/fi';
 import { API_BASE, formatMoney } from '../../utils/promo';
 import { authHeaders } from '../../lib/auth';
@@ -34,7 +34,9 @@ export default function BookingManagement() {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [propertyFilter, setPropertyFilter] = useState('all');
+    const [filterMenuOpen, setFilterMenuOpen] = useState(false);
     const [exporting, setExporting] = useState(false);
+    const filterPopoverRef = useRef(null);
 
     const fetchBookings = async () => {
         setLoading(true);
@@ -58,6 +60,30 @@ export default function BookingManagement() {
     useEffect(() => {
         fetchBookings();
     }, []);
+
+    useEffect(() => {
+        if (!filterMenuOpen) return undefined;
+
+        const handleClickOutside = (event) => {
+            if (filterPopoverRef.current && !filterPopoverRef.current.contains(event.target)) {
+                setFilterMenuOpen(false);
+            }
+        };
+
+        const handleEscape = (event) => {
+            if (event.key === 'Escape') {
+                setFilterMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [filterMenuOpen]);
 
     const propertyFilterOptions = useMemo(() => {
         const seen = new Map();
@@ -111,6 +137,37 @@ export default function BookingManagement() {
         return { total, pending, approved, done };
     }, [bookings]);
 
+    const statCards = useMemo(() => ([
+        {
+            key: 'total',
+            label: 'Total Booking',
+            value: summary.total,
+            desc: 'Semua pengajuan booking',
+            Icon: FaClipboardList,
+        },
+        {
+            key: 'pending',
+            label: 'Menunggu',
+            value: summary.pending,
+            desc: 'Belum diproses admin',
+            Icon: FaClock,
+        },
+        {
+            key: 'approved',
+            label: 'Disetujui',
+            value: summary.approved,
+            desc: 'Booking yang approved',
+            Icon: FaCheckCircle,
+        },
+        {
+            key: 'done',
+            label: 'Selesai',
+            value: summary.done,
+            desc: 'Booking selesai transaksi',
+            Icon: FaFlagCheckered,
+        },
+    ]), [summary]);
+
     const formatDate = (value) => {
         if (!value) return '-';
         return new Date(value).toLocaleDateString('id-ID', {
@@ -138,10 +195,36 @@ export default function BookingManagement() {
     };
 
     const getStatusFilterLabel = (value) => STATUS_FILTERS.find((item) => item.key === value)?.label || 'Semua Status';
-    const getPropertyFilterLabel = (value) => {
+    const getPropertyFilterLabel = useCallback((value) => {
         if (value === 'all') return 'Semua Perumahan';
         return propertyFilterOptions.find((item) => item.key === value)?.label || 'Semua Perumahan';
-    };
+    }, [propertyFilterOptions]);
+
+    const filterTriggerLabel = useMemo(() => {
+        const activeLabels = [];
+
+        if (statusFilter !== 'all') {
+            activeLabels.push(getStatusFilterLabel(statusFilter));
+        }
+
+        if (propertyFilter !== 'all') {
+            activeLabels.push(getPropertyFilterLabel(propertyFilter));
+        }
+
+        if (activeLabels.length === 0) return 'All';
+        if (activeLabels.length === 1) return activeLabels[0];
+        return `${activeLabels.length} Filter`;
+    }, [statusFilter, propertyFilter, getPropertyFilterLabel]);
+
+    const hasActiveFilter = statusFilter !== 'all' || propertyFilter !== 'all';
+
+    const getFilterItemClass = (active) => (
+        `flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm transition-colors ${
+            active
+                ? 'bg-primary-50 text-primary-700 font-medium'
+                : 'text-slate-700 hover:bg-slate-50'
+        }`
+    );
 
     const downloadBookingExcel = async () => {
         if (filteredBookings.length === 0) return;
@@ -272,7 +355,7 @@ export default function BookingManagement() {
             anchor.click();
             anchor.remove();
             URL.revokeObjectURL(url);
-        } catch (err) {
+        } catch {
             setError('Gagal menyiapkan file Excel daftar booking.');
         } finally {
             setExporting(false);
@@ -290,12 +373,6 @@ export default function BookingManagement() {
         }
     };
 
-    const statusChipClass = (value) => (
-        statusFilter === value
-            ? 'bg-gray-900 text-white border-gray-900'
-            : 'bg-white text-gray-600 border-gray-200'
-    );
-
     return (
         <div className="admin-page space-y-7 animate-in fade-in duration-500">
             <div className="admin-page-head flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -303,41 +380,34 @@ export default function BookingManagement() {
                     <h1 className="admin-page-title text-[2rem] leading-tight tracking-tight font-semibold text-gray-900">Kelola Booking</h1>
                     <p className="admin-page-subtitle text-gray-500 text-sm mt-1">Lihat, filter, dan buka detail booking. Semua aksi status dilakukan di halaman detail booking.</p>
                 </div>
+                <Button
+                    variant="primary"
+                    className="h-11 px-5 rounded-lg w-full sm:w-auto"
+                    onClick={downloadBookingExcel}
+                    disabled={loading || exporting || filteredBookings.length === 0}
+                >
+                    <FiDownload className="mr-2" />
+                    {exporting ? 'Menyiapkan Excel...' : 'Download Excel'}
+                </Button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-white overflow-hidden">
-                    <div className="h-1.5 bg-blue-500" />
-                    <div className="px-5 py-5">
-                        <p className="text-xs text-blue-700 font-medium">Total Booking</p>
-                        <p className="text-3xl leading-tight font-semibold text-gray-900 mt-0.5">{summary.total}</p>
-                        <p className="text-xs text-gray-500 mt-1">Semua pengajuan booking</p>
-                    </div>
-                </div>
-                <div className="rounded-2xl border border-yellow-100 bg-gradient-to-br from-yellow-50 via-white to-white overflow-hidden">
-                    <div className="h-1.5 bg-yellow-500" />
-                    <div className="px-5 py-5">
-                        <p className="text-xs text-yellow-700 font-medium">Menunggu</p>
-                        <p className="text-3xl leading-tight font-semibold text-gray-900 mt-0.5">{summary.pending}</p>
-                        <p className="text-xs text-gray-500 mt-1">Belum diproses admin</p>
-                    </div>
-                </div>
-                <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-white overflow-hidden">
-                    <div className="h-1.5 bg-emerald-500" />
-                    <div className="px-5 py-5">
-                        <p className="text-xs text-emerald-700 font-medium">Disetujui</p>
-                        <p className="text-3xl leading-tight font-semibold text-gray-900 mt-0.5">{summary.approved}</p>
-                        <p className="text-xs text-gray-500 mt-1">Booking yang approved</p>
-                    </div>
-                </div>
-                <div className="rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-white overflow-hidden">
-                    <div className="h-1.5 bg-violet-500" />
-                    <div className="px-5 py-5">
-                        <p className="text-xs text-violet-700 font-medium">Selesai</p>
-                        <p className="text-3xl leading-tight font-semibold text-gray-900 mt-0.5">{summary.done}</p>
-                        <p className="text-xs text-gray-500 mt-1">Booking selesai transaksi</p>
-                    </div>
-                </div>
+                {statCards.map((item) => (
+                    <article key={item.key} className="admin-stat-card">
+                        <div className="admin-stat-head">
+                            <div className="admin-stat-info">
+                                <p className="admin-stat-label">{item.label}</p>
+                                <p className="admin-stat-value">{item.value}</p>
+                                <div className="admin-stat-meta">
+                                    <p className="admin-stat-desc">{item.desc}</p>
+                                    <div className="admin-stat-icon">
+                                        <item.Icon />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                ))}
             </div>
 
             {error && (
@@ -346,68 +416,97 @@ export default function BookingManagement() {
                 </div>
             )}
 
-            <Card className="border-gray-200 shadow-sm overflow-hidden rounded-xl">
-                <CardContent className="p-0">
-                    <div className="p-5 border-b border-gray-100 flex flex-col gap-4 bg-white">
-                        <div className="admin-toolbar flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                            <div className="relative w-full lg:max-w-sm">
-                                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
-                                <input
-                                    type="text"
-                                    className="w-full h-11 rounded-lg border border-gray-200 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
-                                    placeholder="Cari kode booking, nama user, email, atau perumahan..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
-                                <span className="text-sm text-gray-500">{filteredBookings.length} data ditemukan</span>
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-                                    <div className="relative w-full sm:w-auto">
-                                        <FaHome className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
-                                        <select
-                                            className="w-full sm:w-auto h-10 rounded-lg border border-gray-200 pl-8 pr-8 text-xs focus:outline-none focus:ring-2 focus:ring-primary-300"
-                                            value={propertyFilter}
-                                            onChange={(e) => setPropertyFilter(e.target.value)}
-                                        >
-                                            <option value="all">Semua Perumahan</option>
-                                            {propertyFilterOptions.map((item) => (
-                                                <option key={item.key} value={item.key}>
-                                                    {item.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <Button variant="outline" className="h-10 px-3.5 w-full sm:w-auto" onClick={fetchBookings}>
-                                        <FaSyncAlt className="mr-2" /> Refresh
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        className="h-10 px-3.5 w-full sm:w-auto"
-                                        onClick={downloadBookingExcel}
-                                        disabled={loading || exporting || filteredBookings.length === 0}
-                                    >
-                                        <FiDownload className="mr-2" />
-                                        {exporting ? 'Menyiapkan Excel...' : 'Download Excel'}
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="admin-chip-group flex flex-wrap items-center gap-2">
-                            {STATUS_FILTERS.map((item) => (
-                                <button
-                                    key={item.key}
-                                    type="button"
-                                    onClick={() => setStatusFilter(item.key)}
-                                    className={`h-8 px-3.5 rounded-md text-[11px] border transition-colors ${statusChipClass(item.key)}`}
-                                >
-                                    {item.label}
-                                </button>
-                            ))}
-                        </div>
+            <div className="space-y-3">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+                    <div className="relative min-w-[250px] flex-1">
+                        <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+                        <input
+                            type="text"
+                            className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                            placeholder="Cari kode booking, nama user, email, atau perumahan..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
                     </div>
 
+                    <div className="relative w-full sm:w-auto" ref={filterPopoverRef}>
+                        <button
+                            type="button"
+                            onClick={() => setFilterMenuOpen((prev) => !prev)}
+                            className={`inline-flex h-11 w-full sm:min-w-[180px] items-center justify-between rounded-full border px-4 text-sm font-medium transition-colors ${
+                                hasActiveFilter
+                                    ? 'border-primary-300 bg-primary-50 text-primary-700'
+                                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                            }`}
+                        >
+                            <span className="inline-flex items-center gap-2">
+                                <FaSlidersH className="text-xs" />
+                                {filterTriggerLabel}
+                                {hasActiveFilter && <span className="h-2 w-2 rounded-full bg-primary-500" />}
+                            </span>
+                            {filterMenuOpen ? <FaChevronUp className="text-xs" /> : <FaChevronDown className="text-xs" />}
+                        </button>
+
+                        {filterMenuOpen && (
+                            <div className="absolute left-0 top-[calc(100%+0.55rem)] z-30 w-[min(92vw,320px)] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.35)]">
+                                <div className="space-y-1">
+                                    <p className="px-1 text-[11px] font-semibold tracking-[0.12em] text-slate-500 uppercase">Status</p>
+                                    {STATUS_FILTERS.map((option) => {
+                                        const isActive = statusFilter === option.key;
+                                        return (
+                                            <button
+                                                key={option.key}
+                                                type="button"
+                                                onClick={() => setStatusFilter(option.key)}
+                                                className={getFilterItemClass(isActive)}
+                                            >
+                                                <span>{option.label}</span>
+                                                {isActive && <FaCheck className="text-xs" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                <div className="my-3 h-px bg-slate-200" />
+
+                                <div className="space-y-1">
+                                    <p className="px-1 text-[11px] font-semibold tracking-[0.12em] text-slate-500 uppercase">Perumahan</p>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPropertyFilter('all')}
+                                        className={getFilterItemClass(propertyFilter === 'all')}
+                                    >
+                                        <span>Semua Perumahan</span>
+                                        {propertyFilter === 'all' && <FaCheck className="text-xs" />}
+                                    </button>
+                                    {propertyFilterOptions.map((item) => {
+                                        const isActive = propertyFilter === item.key;
+                                        return (
+                                            <button
+                                                key={item.key}
+                                                type="button"
+                                                onClick={() => setPropertyFilter(item.key)}
+                                                className={getFilterItemClass(isActive)}
+                                            >
+                                                <span>{item.label}</span>
+                                                {isActive && <FaCheck className="text-xs" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="inline-flex h-11 items-center rounded-xl border border-primary-100 bg-primary-50 px-4 text-sm font-medium text-primary-700 whitespace-nowrap">
+                        {filteredBookings.length} data ditemukan
+                    </div>
+                </div>
+
+            </div>
+
+            <Card className="border-gray-200 shadow-sm overflow-hidden rounded-xl">
+                <CardContent className="p-0">
                     <div className="overflow-x-auto responsive-table-wrap">
                         <table className="admin-table w-full text-[13px] text-left min-w-[980px]">
                             <thead className="bg-[#f8fafc] text-gray-500 font-semibold uppercase text-[10px] tracking-[0.06em]">
@@ -433,7 +532,7 @@ export default function BookingManagement() {
                                 ) : (
                                     filteredBookings.map((booking) => (
                                         <tr key={booking.id} className="hover:bg-slate-50/70 transition-colors">
-                                            <td className="px-6 py-4 font-mono text-gray-700">{booking.code}</td>
+                                            <td className="px-6 py-4 font-medium text-gray-700">{booking.code}</td>
                                             <td className="px-6 py-4">
                                                 <p className="font-semibold text-gray-900 text-sm">{booking.user?.name || '-'}</p>
                                                 <p className="text-[11px] text-gray-500 mt-1">{booking.user?.email || '-'}</p>

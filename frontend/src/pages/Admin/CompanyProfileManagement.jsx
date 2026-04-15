@@ -4,8 +4,7 @@ import Button from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import { authHeaders } from '../../lib/auth';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+import { fetchJsonWithFallback, resolveImage as resolveApiImage } from '../../utils/promo';
 
 export default function CompanyProfileManagement() {
     const [activeTab, setActiveTab] = useState('general');
@@ -38,11 +37,7 @@ export default function CompanyProfileManagement() {
             setIsLoading(true);
             setError('');
             try {
-                const response = await fetch(`${API_BASE}/api/company-profile`);
-                if (!response.ok) {
-                    throw new Error('Gagal memuat profil perusahaan.');
-                }
-                const data = await response.json();
+                const data = await fetchJsonWithFallback('/api/company-profile');
                 if (data) {
                     setGeneralInfo({
                         name: data.nama_perusahaan || '',
@@ -87,8 +82,7 @@ export default function CompanyProfileManagement() {
 
     const resolveImage = (path) => {
         if (!path) return '';
-        if (path.startsWith('http')) return path;
-        return `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+        return resolveApiImage(path);
     };
 
     const isFormEmpty = useMemo(() => {
@@ -144,15 +138,11 @@ export default function CompanyProfileManagement() {
                 }
             });
 
-            const response = await fetch(`${API_BASE}/api/company-profile`, {
+            await fetchJsonWithFallback('/api/company-profile', {
                 method: 'POST',
                 headers: authHeaders(),
                 body: formData
             });
-
-            if (!response.ok) {
-                throw new Error('Gagal menyimpan profil perusahaan.');
-            }
 
             alert('Profil Perusahaan berhasil diperbarui!');
         } catch (err) {

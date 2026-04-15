@@ -4,8 +4,7 @@ import Button from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import { authHeaders } from '../../lib/auth';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { fetchJsonWithFallback } from '../../utils/promo';
 
 const jenisOptions = [
     { value: 'informasi', label: 'Informasi' },
@@ -37,11 +36,7 @@ export default function KprManagement() {
         setIsLoading(true);
         setError('');
         try {
-            const response = await fetch(`${API_BASE}/api/kpr-contents`);
-            if (!response.ok) {
-                throw new Error('Gagal memuat data KPR.');
-            }
-            const data = await response.json();
+            const data = await fetchJsonWithFallback('/api/kpr-contents');
             setItems(data);
         } catch (err) {
             setError(err.message || 'Terjadi kesalahan saat memuat data.');
@@ -87,23 +82,16 @@ export default function KprManagement() {
 
         try {
             const isEdit = Boolean(editingId);
-            const endpoint = isEdit
-                ? `${API_BASE}/api/kpr-contents/${editingId}`
-                : `${API_BASE}/api/kpr-contents`;
-            const method = isEdit ? 'PUT' : 'POST';
-
-            const response = await fetch(endpoint, {
-                method,
+            await fetchJsonWithFallback(
+                isEdit ? `/api/kpr-contents/${editingId}` : '/api/kpr-contents',
+                {
+                method: isEdit ? 'PUT' : 'POST',
                 headers: {
                     ...authHeaders(),
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(formData)
             });
-
-            if (!response.ok) {
-                throw new Error('Gagal menyimpan data KPR.');
-            }
 
             await fetchItems();
             setIsFormOpen(false);
@@ -123,13 +111,10 @@ export default function KprManagement() {
 
         setError('');
         try {
-            const response = await fetch(`${API_BASE}/api/kpr-contents/${itemId}`, {
+            await fetchJsonWithFallback(`/api/kpr-contents/${itemId}`, {
                 method: 'DELETE',
                 headers: authHeaders(),
             });
-            if (!response.ok) {
-                throw new Error('Gagal menghapus data KPR.');
-            }
             await fetchItems();
         } catch (err) {
             setError(err.message || 'Terjadi kesalahan saat menghapus data.');

@@ -12,8 +12,7 @@ import {
 } from 'react-icons/fi';
 import Button from '../components/ui/Button';
 import bgPage from '../assets/bg_page.jpg';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { fetchJsonWithFallback } from '../utils/promo';
 
 const infoCards = [
     {
@@ -125,11 +124,7 @@ export default function KprInfo() {
     useEffect(() => {
         const fetchKprContent = async () => {
             try {
-                const response = await fetch(`${API_BASE}/api/kpr-contents`);
-                if (!response.ok) {
-                    throw new Error('Gagal memuat konten KPR.');
-                }
-                const data = await response.json();
+                const data = await fetchJsonWithFallback('/api/kpr-contents');
                 setRemoteItems(data || []);
             } catch (err) {
                 setRemoteError(err.message || 'Gagal memuat konten KPR.');

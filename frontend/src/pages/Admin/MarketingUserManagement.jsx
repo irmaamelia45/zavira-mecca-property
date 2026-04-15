@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { FaTrash } from 'react-icons/fa';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { FaPlus, FaTrash } from 'react-icons/fa';
 import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
 import { Card, CardContent } from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import { fetchJsonWithFallback } from '../../utils/promo';
 import { authHeaders } from '../../lib/auth';
-import { normalizePhone62 } from '../../lib/phone';
 
 const formatDate = (value) => {
     if (!value) return '-';
@@ -17,21 +16,11 @@ const formatDate = (value) => {
     });
 };
 
-const initialMarketingForm = {
-    nama: '',
-    email: '',
-    no_hp: '',
-    alamat: '',
-    password: '',
-    password_confirmation: '',
-    is_active: true,
-};
-
 export default function MarketingUserManagement() {
-    const [marketingForm, setMarketingForm] = useState(initialMarketingForm);
+    const navigate = useNavigate();
+    const location = useLocation();
     const [marketingUsers, setMarketingUsers] = useState([]);
     const [loadingMarketingUsers, setLoadingMarketingUsers] = useState(true);
-    const [savingMarketing, setSavingMarketing] = useState(false);
     const [deletingMarketingId, setDeletingMarketingId] = useState(null);
 
     const [error, setError] = useState('');
@@ -54,40 +43,14 @@ export default function MarketingUserManagement() {
 
     useEffect(() => {
         fetchMarketingUsers();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const updateMarketingField = (key, value) => {
-        setMarketingForm((prev) => ({
-            ...prev,
-            [key]: key === 'no_hp' ? normalizePhone62(value) : value,
-        }));
-    };
+    useEffect(() => {
+        if (!location?.state?.successMessage) return;
 
-    const handleCreateMarketing = async (event) => {
-        event.preventDefault();
-        setSavingMarketing(true);
-        setError('');
-        setSuccess('');
-
-        try {
-            const data = await fetchJsonWithFallback('/api/admin/users/marketing', {
-                method: 'POST',
-                headers: authHeaders({
-                    'Content-Type': 'application/json',
-                }),
-                body: JSON.stringify(marketingForm),
-            });
-
-            setSuccess(data?.message || 'Akun marketing berhasil dibuat.');
-            setMarketingForm(initialMarketingForm);
-            await fetchMarketingUsers();
-        } catch (err) {
-            setError(err.message || 'Gagal membuat akun marketing.');
-        } finally {
-            setSavingMarketing(false);
-        }
-    };
+        setSuccess(location.state.successMessage);
+        navigate(location.pathname, { replace: true });
+    }, [location, navigate]);
 
     const handleDeleteMarketing = async (user) => {
         const confirmed = window.confirm(`Hapus akun marketing "${user.nama}"?`);
@@ -114,11 +77,17 @@ export default function MarketingUserManagement() {
 
     return (
         <div className="admin-page space-y-6 animate-in fade-in duration-300 py-2">
-            <div>
-                <h1 className="admin-page-title text-2xl font-bold text-gray-800">Kelola Akun Marketing</h1>
-                <p className="admin-page-subtitle text-sm text-gray-500 mt-1">
-                    Register publik hanya untuk User. Akun Marketing dibuat oleh Admin Perumahan atau Superadmin.
-                </p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <h1 className="admin-page-title text-2xl font-bold text-gray-800">Kelola Akun Marketing</h1>
+                    <p className="admin-page-subtitle text-sm text-gray-500 mt-1">
+                        Register publik hanya untuk User. Akun Marketing dibuat oleh Admin Perumahan atau Superadmin.
+                    </p>
+                </div>
+                <Button onClick={() => navigate('/admin/marketing-users/add')} className="w-full sm:w-auto">
+                    <FaPlus className="mr-2" />
+                    Tambah Akun Marketing
+                </Button>
             </div>
 
             {error && (
@@ -135,76 +104,6 @@ export default function MarketingUserManagement() {
 
             <Card className="border border-gray-200 shadow-sm">
                 <CardContent className="p-6 space-y-4">
-                    <h2 className="text-lg font-semibold text-gray-900">Buat Akun Marketing</h2>
-                    <form onSubmit={handleCreateMarketing} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Input
-                                label="Nama"
-                                value={marketingForm.nama}
-                                onChange={(e) => updateMarketingField('nama', e.target.value)}
-                                placeholder="Nama lengkap marketing"
-                                required
-                            />
-                            <Input
-                                label="Email"
-                                type="email"
-                                value={marketingForm.email}
-                                onChange={(e) => updateMarketingField('email', e.target.value)}
-                                placeholder="marketing@email.com"
-                                required
-                            />
-                            <Input
-                                label="No. HP"
-                                value={marketingForm.no_hp}
-                                onChange={(e) => updateMarketingField('no_hp', e.target.value)}
-                                placeholder="628xxxxxxxxxx"
-                                required
-                            />
-                            <Input
-                                label="Alamat"
-                                value={marketingForm.alamat}
-                                onChange={(e) => updateMarketingField('alamat', e.target.value)}
-                                placeholder="Alamat marketing"
-                            />
-                            <Input
-                                label="Password"
-                                type="password"
-                                value={marketingForm.password}
-                                onChange={(e) => updateMarketingField('password', e.target.value)}
-                                placeholder="Minimal 8 karakter"
-                                required
-                            />
-                            <Input
-                                label="Konfirmasi Password"
-                                type="password"
-                                value={marketingForm.password_confirmation}
-                                onChange={(e) => updateMarketingField('password_confirmation', e.target.value)}
-                                placeholder="Ulangi password"
-                                required
-                            />
-                        </div>
-
-                        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                            <input
-                                type="checkbox"
-                                checked={marketingForm.is_active}
-                                onChange={(e) => updateMarketingField('is_active', e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                            />
-                            Akun aktif
-                        </label>
-
-                        <div>
-                            <Button type="submit" isLoading={savingMarketing} className="w-full sm:w-auto">
-                                Buat Akun Marketing
-                            </Button>
-                        </div>
-                    </form>
-                </CardContent>
-            </Card>
-
-            <Card className="border border-gray-200 shadow-sm">
-                <CardContent className="p-6 space-y-4">
                     <h2 className="text-lg font-semibold text-gray-900">Daftar Akun Marketing</h2>
                     {loadingMarketingUsers ? (
                         <p className="text-sm text-gray-500">Memuat akun marketing...</p>
@@ -215,27 +114,27 @@ export default function MarketingUserManagement() {
                             <table className="admin-table min-w-full text-sm">
                                 <thead className="text-left text-gray-500 border-b border-gray-200">
                                     <tr>
-                                        <th className="py-3 pr-4 font-semibold">Nama</th>
-                                        <th className="py-3 pr-4 font-semibold">Email</th>
-                                        <th className="py-3 pr-4 font-semibold">No. HP</th>
-                                        <th className="py-3 pr-4 font-semibold">Status</th>
-                                        <th className="py-3 pr-4 font-semibold">Dibuat</th>
-                                        <th className="py-3 pr-4 font-semibold text-right">Aksi</th>
+                                        <th className="px-5 py-3.5 font-semibold">Nama</th>
+                                        <th className="px-5 py-3.5 font-semibold">Email</th>
+                                        <th className="px-5 py-3.5 font-semibold">No. HP</th>
+                                        <th className="px-5 py-3.5 font-semibold">Status</th>
+                                        <th className="px-5 py-3.5 font-semibold">Dibuat</th>
+                                        <th className="px-5 py-3.5 font-semibold text-right">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {marketingUsers.map((user) => (
                                         <tr key={user.id} className="border-b border-gray-100">
-                                            <td className="py-3 pr-4 text-gray-900 font-medium">{user.nama}</td>
-                                            <td className="py-3 pr-4 text-gray-700">{user.email}</td>
-                                            <td className="py-3 pr-4 text-gray-700">{user.no_hp}</td>
-                                            <td className="py-3 pr-4">
+                                            <td className="px-5 py-4 text-gray-900 font-medium">{user.nama}</td>
+                                            <td className="px-5 py-4 text-gray-700">{user.email}</td>
+                                            <td className="px-5 py-4 text-gray-700">{user.no_hp}</td>
+                                            <td className="px-5 py-4">
                                                 <Badge variant={user.is_active ? 'success' : 'destructive'}>
                                                     {user.is_active ? 'Aktif' : 'Nonaktif'}
                                                 </Badge>
                                             </td>
-                                            <td className="py-3 pr-4 text-gray-700">{formatDate(user.created_at)}</td>
-                                            <td className="py-3 pr-4 text-right">
+                                            <td className="px-5 py-4 text-gray-700">{formatDate(user.created_at)}</td>
+                                            <td className="px-5 py-4 text-right">
                                                 <button
                                                     type="button"
                                                     onClick={() => handleDeleteMarketing(user)}

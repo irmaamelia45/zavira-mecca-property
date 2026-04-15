@@ -10,12 +10,14 @@ return [
 
 Halo Admin ZAVIRA,
 Telah masuk booking baru dari calon pembeli dengan detail berikut:
+
 Nama: {nama_user}
 No. WhatsApp: {no_user}
 Perumahan: {nama_perumahan}
-Unit/Rumah: {nama_unit}
+Unit : {nama_unit}
 Tanggal Booking: {tanggal_booking}
 Status Booking: {status_booking}
+
 Silakan segera cek data booking pada sistem untuk proses tindak lanjut.
 Terima kasih.
 TEXT,
@@ -23,10 +25,12 @@ TEXT,
         'user_booking_created' => <<<'TEXT'
 Halo {nama_user},
 Terima kasih, booking Anda telah berhasil kami terima dengan detail berikut:
+
 Perumahan: {nama_perumahan}
-Unit/Rumah: {nama_unit}
+Unit : {nama_unit}
 Tanggal Booking: {tanggal_booking}
 Status Saat Ini: {status_booking}
+
 Selanjutnya, silakan menunggu proses verifikasi dari admin ZAVIRA.
 Kami akan menghubungi Anda kembali apabila terdapat pembaruan status booking.
 Terima kasih.
@@ -36,13 +40,18 @@ TEXT,
 Halo {nama_user},
 Selamat, booking Anda telah DISETUJUI oleh admin ZAVIRA.
 Detail booking Anda:
+
 Perumahan: {nama_perumahan}
+Unit : {nama_unit}
 Tanggal Booking: {tanggal_booking}
 Status: Disetujui
+
 Untuk menindaklanjuti proses pembelian rumah dengan skema KPR, Anda dimohon untuk membawa berkas persyaratan KPR dalam bentuk fisik ke kantor ZAVIRA.
 Silakan datang ke kantor ZAVIRA dengan membawa berkas persyaratan KPR untuk proses verifikasi dan tindak lanjut administrasi.
+
 Lokasi kantor ZAVIRA:
 {link_maps_kantor}
+
 Apabila ada pertanyaan lebih lanjut, silakan hubungi admin ZAVIRA.
 Terima kasih.
 TEXT,
@@ -74,10 +83,12 @@ TEXT,
         'user_status_default' => <<<'TEXT'
 Halo {nama_user},
 Status booking Anda telah diperbarui.
+
 Perumahan: {nama_perumahan}
-Unit/Rumah: {nama_unit}
+Unit: {nama_unit}
 Tanggal Booking: {tanggal_booking}
 Status terbaru: {status_booking}
+
 Silakan cek akun Anda untuk detail terbaru.
 Terima kasih.
 TEXT,
@@ -85,11 +96,13 @@ TEXT,
         'promo_broadcast' => <<<'TEXT'
 Halo {nama_user},
 Ada promo baru dari ZAVIRA.
+
 Judul Promo: {judul_promo}
 Properti: {nama_perumahan}
 Periode: {periode_promo}
 Detail: {deskripsi_promo}
-Silakan cek aplikasi untuk informasi lengkap.
+
+Silakan cek website untuk informasi lengkap.
 Terima kasih.
 TEXT,
     ],

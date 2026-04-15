@@ -116,7 +116,7 @@ export default function Home() {
 
                 const data = await response.json();
                 setCompanyWhatsapp(data?.whatsapp || '');
-            } catch (err) {
+            } catch {
                 // Silent fail, consultation button will be disabled.
             }
         };
@@ -670,7 +670,7 @@ export default function Home() {
             </section>
 
             <section className="bg-[#fdfbf6] py-8">
-                <div className="border-y border-slate-200 bg-white py-8 md:py-10">
+                <div className="border-y border-slate-200 bg-[#fdfbf6] py-8 md:py-10">
                     <div className="container-custom">
                         <div className="grid xl:grid-cols-[1.15fr_0.85fr] gap-8 xl:gap-10 items-stretch">
                             <div>
@@ -764,7 +764,7 @@ export default function Home() {
             </section>
 
             <section className="bg-[#fdfbf6] py-8">
-                <div className="relative overflow-hidden border-y border-slate-200 bg-white py-7 md:py-10">
+                <div className="relative overflow-hidden border-y border-slate-200 bg-[#fdfbf6] py-7 md:py-10">
                     <div className="container-custom">
                         <div
                             className="pointer-events-none absolute inset-0 opacity-60"
@@ -836,19 +836,19 @@ export default function Home() {
                                     agar Anda lebih percaya diri dalam memilih hunian.
                                 </p>
 
-                                <div className="mb-7 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                                <div className="mb-7 overflow-hidden rounded-2xl border border-primary-500 bg-primary-600">
                                     <div className="grid grid-cols-1 sm:grid-cols-3">
                                         {insightCards.map((item, index) => (
                                             <div
                                                 key={item.title}
                                                 className={`px-4 py-4 md:px-5 md:py-5 ${
                                                     index < insightCards.length - 1
-                                                        ? 'border-b border-slate-200 sm:border-b-0 sm:border-r'
+                                                        ? 'border-b border-white/20 sm:border-b-0 sm:border-r'
                                                         : ''
                                                 }`}
                                             >
-                                                <p className="text-3xl md:text-4xl font-semibold text-primary-500 leading-none mb-2">{item.value}</p>
-                                                <p className="text-sm md:text-base text-gray-500">{item.title}</p>
+                                                <p className="text-3xl md:text-4xl font-semibold text-white leading-none mb-2">{item.value}</p>
+                                                <p className="text-sm md:text-base text-white">{item.title}</p>
                                             </div>
                                         ))}
                                     </div>

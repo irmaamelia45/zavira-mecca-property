@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -16,7 +16,7 @@ export default function BookingDetail() {
     const [updating, setUpdating] = useState(false);
     const [adminNote, setAdminNote] = useState('');
 
-    const fetchDetail = async () => {
+    const fetchDetail = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
@@ -34,11 +34,11 @@ export default function BookingDetail() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
 
     useEffect(() => {
         fetchDetail();
-    }, [id]);
+    }, [fetchDetail]);
 
     const statusVariant = (status) => {
         const normalized = String(status || '').toLowerCase();
@@ -64,6 +64,8 @@ export default function BookingDetail() {
         if (value === 'non_fixed_income') return 'Non Fixed Income';
         return '-';
     };
+
+    const formatInstallmentStatus = (value) => (value ? 'Ya' : 'Tidak');
 
     const updateStatus = async (nextStatus) => {
         if (!booking) return;
@@ -274,6 +276,10 @@ export default function BookingDetail() {
                     <div className="rounded-md border border-gray-100 bg-gray-50 px-4 py-3">
                         <p className="text-gray-500">Gaji per Bulan</p>
                         <p className="font-semibold text-gray-900">{formatMoney(booking.gaji_bulanan || 0)}</p>
+                    </div>
+                    <div className="rounded-md border border-gray-100 bg-gray-50 px-4 py-3">
+                        <p className="text-gray-500">Angsuran Lain Berjalan</p>
+                        <p className="font-semibold text-gray-900">{formatInstallmentStatus(booking.memiliki_angsuran_lain)}</p>
                     </div>
                     <div className="rounded-md border border-gray-100 bg-gray-50 px-4 py-3">
                         <p className="text-gray-500">Dokumen</p>

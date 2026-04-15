@@ -92,13 +92,109 @@
 
   /* Admin visual harmonization: smaller radius + consistent table/card surface. */
   .admin-ui [data-ui="card"] {
-    border-radius: 0.7rem !important;
+    border-radius: 1rem !important;
     border-color: #e7dfd0 !important;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
+    box-shadow: 0 10px 22px -18px rgba(15, 23, 42, 0.3) !important;
+    transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease !important;
   }
 
   .admin-ui [data-ui="card"]:hover {
-    box-shadow: 0 8px 18px -14px rgba(15, 23, 42, 0.28) !important;
+    transform: translateY(-2px) scale(1.005);
+    box-shadow: 0 16px 30px -18px rgba(15, 23, 42, 0.36) !important;
+  }
+
+  .admin-ui .admin-stat-card {
+    --admin-stat-icon-fg: #243a66;
+    border-radius: 0.75rem;
+    border: 1px solid #e7dfd0;
+    background: #ffffff;
+    padding: 1.1rem 1.2rem;
+    min-height: 7.4rem;
+    box-shadow: 0 10px 24px -20px rgba(15, 23, 42, 0.34);
+    transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+    will-change: transform, box-shadow;
+  }
+
+  .admin-ui .admin-stat-card:hover {
+    border-color: #ddd2c0;
+    transform: translateY(-4px) scale(1.015);
+    box-shadow: 0 18px 36px -20px rgba(15, 23, 42, 0.42);
+  }
+
+  .admin-ui .admin-stat-head {
+    display: flex;
+    align-items: stretch;
+    min-height: 100%;
+  }
+
+  .admin-ui .admin-stat-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .admin-ui .admin-stat-meta {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+  }
+
+  .admin-ui .admin-stat-label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #5f6f8f;
+  }
+
+  .admin-ui .admin-stat-value {
+    margin-top: 0.65rem;
+    font-size: 2.6rem;
+    line-height: 1;
+    font-weight: 700;
+    color: #1f3f78;
+  }
+
+  .admin-ui .admin-stat-desc {
+    margin-top: 0.78rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #64748b;
+  }
+
+  .admin-ui .admin-stat-icon {
+    flex-shrink: 0;
+    width: auto;
+    height: auto;
+    border: 0;
+    background: transparent;
+    color: var(--admin-stat-icon-fg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    line-height: 1;
+  }
+
+  .admin-ui .admin-stat-card.tone-indigo {
+    --admin-stat-icon-fg: #243a66;
+  }
+
+  .admin-ui .admin-stat-card.tone-rose {
+    --admin-stat-icon-fg: #243a66;
+  }
+
+  .admin-ui .admin-stat-card.tone-amber {
+    --admin-stat-icon-fg: #243a66;
+  }
+
+  .admin-ui .admin-stat-card.tone-sky {
+    --admin-stat-icon-fg: #243a66;
+  }
+
+  .admin-ui .admin-stat-card.tone-emerald {
+    --admin-stat-icon-fg: #243a66;
   }
 
   .admin-ui .rounded-2xl.border,
@@ -110,23 +206,39 @@
   .admin-ui table {
     border-collapse: separate;
     border-spacing: 0;
+    width: 100%;
+    background: #ffffff;
   }
 
   .admin-ui table thead th {
     font-size: 0.72rem !important;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: #64748b;
-    border-bottom: 1px solid #ebe4d8;
-    background: #faf9f6;
+    font-weight: 600;
+    color: #ffffff !important;
+    border-bottom: 1px solid #20345f;
+    background: #243a66 !important;
+  }
+
+  .admin-ui table thead th:first-child {
+    border-top-left-radius: 0.75rem;
+  }
+
+  .admin-ui table thead th:last-child {
+    border-top-right-radius: 0.75rem;
   }
 
   .admin-ui table tbody td {
-    border-bottom: 1px solid #f1ece3;
+    border-bottom: 1px solid #e5eaf3;
+    color: #334155;
   }
 
   .admin-ui table tbody tr:hover td {
-    background: #fcfbf8;
+    background: #f6f9ff;
+  }
+
+  .admin-ui table tbody tr:last-child td {
+    border-bottom: none;
   }
 
   @media (max-width: 1023px) {

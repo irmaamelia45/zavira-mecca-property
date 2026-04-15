@@ -24,6 +24,7 @@ class Booking extends Model
         'pekerjaan',
         'jenis_pekerjaan',
         'gaji_bulanan',
+        'memiliki_angsuran_lain',
         'catatan_admin',
         'approved_at',
         'rejected_at',
@@ -38,6 +39,7 @@ class Booking extends Model
         return [
             'tanggal_booking' => 'datetime',
             'gaji_bulanan' => 'integer',
+            'memiliki_angsuran_lain' => 'boolean',
             'approved_at' => 'datetime',
             'rejected_at' => 'datetime',
             'canceled_at' => 'datetime',

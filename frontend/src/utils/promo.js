@@ -26,7 +26,12 @@ const createRequestError = (message, stopFallback = false) => {
 };
 
 export const getApiBaseCandidates = () => {
-    const envBase = stripTrailingSlash(import.meta.env.VITE_API_URL || '');
+    const envValue = String(import.meta.env.VITE_API_URL || '').trim();
+    const envBaseRaw = stripTrailingSlash(envValue);
+    const preferRelativeApi = envBaseRaw === '/api';
+    const envBase = envBaseRaw.toLowerCase().endsWith('/api')
+        ? stripTrailingSlash(envBaseRaw.slice(0, -4))
+        : envBaseRaw;
     const defaultBase = 'http://127.0.0.1:8000';
     const origin = typeof window !== 'undefined' ? stripTrailingSlash(window.location.origin) : '';
     const originHostBase = (() => {
@@ -42,18 +47,20 @@ export const getApiBaseCandidates = () => {
     })();
 
     const candidates = [
-        envBase,
+        ...(preferRelativeApi ? [''] : [envBase]),
         defaultBase,
         originHostBase,
         originHostBase ? `${originHostBase}/backend/public` : '',
         originHostBase ? `${originHostBase}/sistem-pemasaran-perumahan/backend/public` : '',
         originHostBase ? `${originHostBase}/zavira-mecca-property/sistem-pemasaran-perumahan/backend/public` : '',
-    ].filter(Boolean);
-
-    return Array.from(new Set(candidates));
+    ]
+        .filter((value) => value !== null && value !== undefined)
+        .filter((value, index, array) => array.indexOf(value) === index);
+    
+    return candidates;
 };
 
-export const API_BASE = getApiBaseCandidates()[0] || 'http://127.0.0.1:8000';
+export const API_BASE = getApiBaseCandidates()[0] ?? 'http://127.0.0.1:8000';
 
 export const normalizeApiListPayload = (payload) => {
     if (Array.isArray(payload)) return payload.filter((item) => item && typeof item === 'object');

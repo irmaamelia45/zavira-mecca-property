@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { Card, CardContent } from '../../components/ui/Card';
-import { FaPlus, FaSearch, FaSyncAlt, FaSlidersH } from 'react-icons/fa';
+import { FaPlus, FaSearch, FaSlidersH, FaTags, FaCheckCircle, FaPercent, FaMoneyBillWave, FaChevronDown, FaChevronUp, FaCheck } from 'react-icons/fa';
 import { API_BASE, formatPromoPeriod, formatMoney } from '../../utils/promo';
 import { authHeaders } from '../../lib/auth';
 
@@ -12,6 +12,21 @@ const PROMO_TYPE_FILTERS = [
     { key: 'percent', label: 'Diskon Persen' },
     { key: 'amount', label: 'Potongan Nominal' },
     { key: 'none', label: 'Info Promo' },
+];
+
+const STATUS_FILTERS = [
+    { key: 'all', label: 'Semua Status' },
+    { key: 'active', label: 'Aktif' },
+    { key: 'inactive', label: 'Nonaktif' },
+];
+
+const SORT_OPTIONS = [
+    { key: 'date_desc', label: 'Periode Terbaru' },
+    { key: 'date_asc', label: 'Periode Terlama' },
+    { key: 'name_asc', label: 'Judul A-Z' },
+    { key: 'name_desc', label: 'Judul Z-A' },
+    { key: 'value_desc', label: 'Nilai Promo Tertinggi' },
+    { key: 'value_asc', label: 'Nilai Promo Terendah' },
 ];
 
 const normalizePromoType = (value) => {
@@ -27,18 +42,6 @@ const promoTypeLabel = (value) => {
     return 'Info Promo';
 };
 
-const statusChipClass = (activeFilter, value) => (
-    activeFilter === value
-        ? 'bg-gray-900 text-white border-gray-900'
-        : 'bg-white text-gray-600 border-gray-200'
-);
-
-const typeChipClass = (activeFilter, value) => (
-    activeFilter === value
-        ? 'bg-primary-600 text-white border-primary-600'
-        : 'bg-white text-gray-600 border-gray-200 hover:border-primary-200 hover:text-primary-700'
-);
-
 export default function PromoManagement() {
     const navigate = useNavigate();
     const [promos, setPromos] = useState([]);
@@ -48,6 +51,8 @@ export default function PromoManagement() {
     const [promoTypeFilter, setPromoTypeFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
     const [sortBy, setSortBy] = useState('date_desc');
+    const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+    const filterPopoverRef = useRef(null);
 
     const fetchPromos = async () => {
         setIsLoading(true);
@@ -97,22 +102,29 @@ export default function PromoManagement() {
         fetchPromos();
     }, []);
 
-    const handleDelete = async (id) => {
-        if (window.confirm('Apakah Anda yakin ingin menghapus promo ini?')) {
-            try {
-                const response = await fetch(`${API_BASE}/api/promos/${id}`, {
-                    method: 'DELETE',
-                    headers: authHeaders(),
-                });
-                if (!response.ok) {
-                    throw new Error('Gagal menghapus promo.');
-                }
-                setPromos((prev) => prev.filter((promo) => promo.id !== id));
-            } catch (err) {
-                alert(err.message || 'Gagal menghapus promo.');
+    useEffect(() => {
+        if (!filterMenuOpen) return undefined;
+
+        const handleClickOutside = (event) => {
+            if (filterPopoverRef.current && !filterPopoverRef.current.contains(event.target)) {
+                setFilterMenuOpen(false);
             }
-        }
-    };
+        };
+
+        const handleEscape = (event) => {
+            if (event.key === 'Escape') {
+                setFilterMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [filterMenuOpen]);
 
     const filteredPromos = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -152,6 +164,70 @@ export default function PromoManagement() {
         return { total, active, percent, amount, info };
     }, [promos]);
 
+    const statCards = useMemo(() => ([
+        {
+            key: 'total',
+            label: 'Total Promo',
+            value: summary.total,
+            desc: 'Promo terdaftar saat ini',
+            Icon: FaTags,
+        },
+        {
+            key: 'active',
+            label: 'Promo Aktif',
+            value: summary.active,
+            desc: `${summary.total - summary.active} nonaktif`,
+            Icon: FaCheckCircle,
+        },
+        {
+            key: 'percent',
+            label: 'Diskon Persen',
+            value: summary.percent,
+            desc: 'Promo berbasis persentase',
+            Icon: FaPercent,
+        },
+        {
+            key: 'amount',
+            label: 'Potongan Nominal',
+            value: summary.amount,
+            desc: `${summary.info} info promo tanpa potongan`,
+            Icon: FaMoneyBillWave,
+        },
+    ]), [summary]);
+
+    const getFilterItemClass = (active) => (
+        `flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm transition-colors ${
+            active
+                ? 'bg-primary-50 text-primary-700 font-medium'
+                : 'text-slate-700 hover:bg-slate-50'
+        }`
+    );
+
+    const filterTriggerLabel = useMemo(() => {
+        const activeLabels = [];
+
+        if (promoTypeFilter !== 'all') {
+            const typeLabel = PROMO_TYPE_FILTERS.find((item) => item.key === promoTypeFilter)?.label || promoTypeFilter;
+            activeLabels.push(typeLabel);
+        }
+
+        if (statusFilter !== 'all') {
+            const statusLabel = STATUS_FILTERS.find((item) => item.key === statusFilter)?.label || statusFilter;
+            activeLabels.push(statusLabel);
+        }
+
+        if (sortBy !== 'date_desc') {
+            const sortLabel = SORT_OPTIONS.find((item) => item.key === sortBy)?.label || 'Urutkan';
+            activeLabels.push(sortLabel);
+        }
+
+        if (activeLabels.length === 0) return 'All';
+        if (activeLabels.length === 1) return activeLabels[0];
+        return `${activeLabels.length} Filter`;
+    }, [promoTypeFilter, statusFilter, sortBy]);
+
+    const hasActiveFilter = promoTypeFilter !== 'all' || statusFilter !== 'all' || sortBy !== 'date_desc';
+
     return (
         <div className="admin-page space-y-7 animate-in fade-in duration-500">
             <div className="admin-page-head flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -165,38 +241,22 @@ export default function PromoManagement() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-white overflow-hidden">
-                    <div className="h-1.5 bg-blue-500" />
-                    <div className="px-5 py-5">
-                        <p className="text-xs text-blue-700 font-medium">Total Promo</p>
-                        <p className="text-3xl leading-tight font-semibold text-gray-900 mt-0.5">{summary.total}</p>
-                        <p className="text-xs text-gray-500 mt-1">Promo terdaftar saat ini</p>
-                    </div>
-                </div>
-                <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-white overflow-hidden">
-                    <div className="h-1.5 bg-emerald-500" />
-                    <div className="px-5 py-5">
-                        <p className="text-xs text-emerald-700 font-medium">Promo Aktif</p>
-                        <p className="text-3xl leading-tight font-semibold text-gray-900 mt-0.5">{summary.active}</p>
-                        <p className="text-xs text-gray-500 mt-1">{summary.total - summary.active} nonaktif</p>
-                    </div>
-                </div>
-                <div className="rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-white overflow-hidden">
-                    <div className="h-1.5 bg-violet-500" />
-                    <div className="px-5 py-5">
-                        <p className="text-xs text-violet-700 font-medium">Diskon Persen</p>
-                        <p className="text-3xl leading-tight font-semibold text-gray-900 mt-0.5">{summary.percent}</p>
-                        <p className="text-xs text-gray-500 mt-1">Promo berbasis persentase</p>
-                    </div>
-                </div>
-                <div className="rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-white overflow-hidden">
-                    <div className="h-1.5 bg-amber-500" />
-                    <div className="px-5 py-5">
-                        <p className="text-xs text-amber-700 font-medium">Potongan Nominal</p>
-                        <p className="text-3xl leading-tight font-semibold text-gray-900 mt-0.5">{summary.amount}</p>
-                        <p className="text-xs text-gray-500 mt-1">{summary.info} info promo tanpa potongan</p>
-                    </div>
-                </div>
+                {statCards.map((item) => (
+                    <article key={item.key} className="admin-stat-card">
+                        <div className="admin-stat-head">
+                            <div className="admin-stat-info">
+                                <p className="admin-stat-label">{item.label}</p>
+                                <p className="admin-stat-value">{item.value}</p>
+                                <div className="admin-stat-meta">
+                                    <p className="admin-stat-desc">{item.desc}</p>
+                                    <div className="admin-stat-icon">
+                                        <item.Icon />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                ))}
             </div>
 
             {error && (
@@ -205,84 +265,106 @@ export default function PromoManagement() {
                 </div>
             )}
 
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+                <div className="relative min-w-[250px] flex-1">
+                    <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+                    <input
+                        type="text"
+                        className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                        placeholder="Cari judul promo, kategori, atau perumahan..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
+
+                <div className="relative w-full sm:w-auto" ref={filterPopoverRef}>
+                    <button
+                        type="button"
+                        onClick={() => setFilterMenuOpen((prev) => !prev)}
+                        className={`inline-flex h-11 w-full sm:min-w-[180px] items-center justify-between rounded-full border px-4 text-sm font-medium transition-colors ${
+                            hasActiveFilter
+                                ? 'border-primary-300 bg-primary-50 text-primary-700'
+                                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        }`}
+                    >
+                        <span className="inline-flex items-center gap-2">
+                            <FaSlidersH className="text-xs" />
+                            {filterTriggerLabel}
+                            {hasActiveFilter && <span className="h-2 w-2 rounded-full bg-primary-500" />}
+                        </span>
+                        {filterMenuOpen ? <FaChevronUp className="text-xs" /> : <FaChevronDown className="text-xs" />}
+                    </button>
+
+                    {filterMenuOpen && (
+                        <div className="absolute left-0 top-[calc(100%+0.55rem)] z-30 w-[min(92vw,320px)] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.35)]">
+                            <div className="space-y-1">
+                                <p className="px-1 text-[11px] font-semibold tracking-[0.12em] text-slate-500 uppercase">Tipe Promo</p>
+                                {PROMO_TYPE_FILTERS.map((option) => {
+                                    const isActive = promoTypeFilter === option.key;
+                                    return (
+                                        <button
+                                            key={option.key}
+                                            type="button"
+                                            onClick={() => setPromoTypeFilter(option.key)}
+                                            className={getFilterItemClass(isActive)}
+                                        >
+                                            <span>{option.label}</span>
+                                            {isActive && <FaCheck className="text-xs" />}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="my-3 h-px bg-slate-200" />
+
+                            <div className="space-y-1">
+                                <p className="px-1 text-[11px] font-semibold tracking-[0.12em] text-slate-500 uppercase">Status</p>
+                                {STATUS_FILTERS.map((option) => {
+                                    const isActive = statusFilter === option.key;
+                                    return (
+                                        <button
+                                            key={option.key}
+                                            type="button"
+                                            onClick={() => setStatusFilter(option.key)}
+                                            className={getFilterItemClass(isActive)}
+                                        >
+                                            <span>{option.label}</span>
+                                            {isActive && <FaCheck className="text-xs" />}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="my-3 h-px bg-slate-200" />
+
+                            <div className="space-y-1">
+                                <p className="px-1 text-[11px] font-semibold tracking-[0.12em] text-slate-500 uppercase">Urutkan</p>
+                                {SORT_OPTIONS.map((option) => {
+                                    const isActive = sortBy === option.key;
+                                    return (
+                                        <button
+                                            key={option.key}
+                                            type="button"
+                                            onClick={() => setSortBy(option.key)}
+                                            className={getFilterItemClass(isActive)}
+                                        >
+                                            <span>{option.label}</span>
+                                            {isActive && <FaCheck className="text-xs" />}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="inline-flex h-11 items-center rounded-xl border border-primary-100 bg-primary-50 px-4 text-sm font-medium text-primary-700 whitespace-nowrap">
+                    {filteredPromos.length} data ditemukan
+                </div>
+            </div>
+
             <Card className="border-gray-200 shadow-sm overflow-hidden rounded-xl">
                 <CardContent className="p-0">
-                    <div className="p-5 border-b border-gray-100 flex flex-col gap-4 bg-white">
-                        <div className="admin-toolbar flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                            <div className="relative w-full lg:max-w-sm">
-                                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
-                                <input
-                                    type="text"
-                                    className="w-full h-11 rounded-lg border border-gray-200 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
-                                    placeholder="Cari judul promo, kategori, atau perumahan..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
-                                <span className="text-sm text-gray-500">{filteredPromos.length} data ditemukan</span>
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-                                    <div className="relative w-full sm:w-auto">
-                                        <FaSlidersH className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
-                                        <select
-                                            className="w-full sm:w-auto h-10 rounded-lg border border-gray-200 pl-8 pr-8 text-xs focus:outline-none focus:ring-2 focus:ring-primary-300"
-                                            value={sortBy}
-                                            onChange={(e) => setSortBy(e.target.value)}
-                                        >
-                                            <option value="date_desc">Periode Terbaru</option>
-                                            <option value="date_asc">Periode Terlama</option>
-                                            <option value="name_asc">Judul A-Z</option>
-                                            <option value="name_desc">Judul Z-A</option>
-                                            <option value="value_desc">Nilai Promo Tertinggi</option>
-                                            <option value="value_asc">Nilai Promo Terendah</option>
-                                        </select>
-                                    </div>
-                                    <Button variant="outline" className="h-10 px-3.5 w-full sm:w-auto" onClick={fetchPromos}>
-                                        <FaSyncAlt className="mr-2" /> Refresh
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="admin-filter-row flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                            <div className="admin-chip-group flex flex-wrap items-center gap-2">
-                                {PROMO_TYPE_FILTERS.map((item) => (
-                                    <button
-                                        key={item.key}
-                                        type="button"
-                                        onClick={() => setPromoTypeFilter(item.key)}
-                                        className={`h-8 px-3.5 rounded-md text-[11px] border transition-colors ${typeChipClass(promoTypeFilter, item.key)}`}
-                                    >
-                                        {item.label}
-                                    </button>
-                                ))}
-                            </div>
-                            <div className="admin-chip-group flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setStatusFilter('all')}
-                                    className={`h-8 px-3.5 rounded-md text-[11px] border transition-colors ${statusChipClass(statusFilter, 'all')}`}
-                                >
-                                    Semua Status
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setStatusFilter('active')}
-                                    className={`h-8 px-3.5 rounded-md text-[11px] border transition-colors ${statusFilter === 'active' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-600 border-gray-200'}`}
-                                >
-                                    Aktif
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setStatusFilter('inactive')}
-                                    className={`h-8 px-3.5 rounded-md text-[11px] border transition-colors ${statusFilter === 'inactive' ? 'bg-gray-600 text-white border-gray-600' : 'bg-white text-gray-600 border-gray-200'}`}
-                                >
-                                    Nonaktif
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
                     <div className="overflow-x-auto responsive-table-wrap">
                         <table className="admin-table w-full text-[13px] text-left min-w-[1080px]">
                             <thead className="bg-[#f8fafc] text-gray-500 font-semibold uppercase text-[10px] tracking-[0.06em]">
@@ -333,22 +415,14 @@ export default function PromoManagement() {
                                                 </Badge>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex justify-center items-center gap-2">
+                                                <div className="flex justify-center items-center">
                                                     <Button
                                                         variant="primary"
                                                         size="sm"
                                                         className="h-8 px-3.5 rounded-md text-[11px] font-semibold !shadow-none hover:!shadow-none"
-                                                        onClick={() => navigate(`/admin/promos/edit/${promo.id}`)}
+                                                        onClick={() => navigate(`/admin/promos/${promo.id}`)}
                                                     >
-                                                        Edit
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 px-3.5 rounded-md text-[11px] font-semibold text-red-600 hover:bg-red-50"
-                                                        onClick={() => handleDelete(promo.id)}
-                                                    >
-                                                        Hapus
+                                                        Detail
                                                     </Button>
                                                 </div>
                                             </td>

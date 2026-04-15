@@ -214,6 +214,7 @@ class BookingController extends Controller
             'pekerjaan' => 'required|string|max:100',
             'jenis_pekerjaan' => ['required', Rule::in(['fixed_income', 'non_fixed_income'])],
             'gaji_bulanan' => 'required|integer|min:0',
+            'memiliki_angsuran_lain' => 'required|boolean',
             'dokumen' => 'required|file|mimes:pdf|max:5120',
         ]);
 
@@ -246,6 +247,7 @@ class BookingController extends Controller
                 'pekerjaan' => $validated['pekerjaan'],
                 'jenis_pekerjaan' => $validated['jenis_pekerjaan'],
                 'gaji_bulanan' => $validated['gaji_bulanan'],
+                'memiliki_angsuran_lain' => (bool) $validated['memiliki_angsuran_lain'],
             ]);
 
             if ($request->hasFile('dokumen')) {
@@ -429,6 +431,7 @@ class BookingController extends Controller
             'pekerjaan' => $booking->pekerjaan,
             'jenis_pekerjaan' => $booking->jenis_pekerjaan,
             'gaji_bulanan' => $booking->gaji_bulanan,
+            'memiliki_angsuran_lain' => (bool) $booking->memiliki_angsuran_lain,
             'catatan_admin' => $booking->catatan_admin,
             'approved_at' => optional($booking->approved_at)->toDateTimeString(),
             'rejected_at' => optional($booking->rejected_at)->toDateTimeString(),
@@ -494,6 +497,7 @@ class BookingController extends Controller
             'pekerjaan' => $booking->pekerjaan,
             'jenis_pekerjaan' => $booking->jenis_pekerjaan,
             'gaji_bulanan' => $booking->gaji_bulanan,
+            'memiliki_angsuran_lain' => (bool) $booking->memiliki_angsuran_lain,
             'catatan_admin' => $booking->catatan_admin,
             'documents' => $documents,
         ];

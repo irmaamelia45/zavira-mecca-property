@@ -32,8 +32,11 @@ import KprManagement from './pages/Admin/KprManagement';
 import CompanyProfileManagement from './pages/Admin/CompanyProfileManagement';
 import AddPromo from './pages/Admin/AddPromo';
 import EditPromo from './pages/Admin/EditPromo';
+import PromoDetailAdmin from './pages/Admin/PromoDetail';
 import MarketingUserManagement from './pages/Admin/MarketingUserManagement';
+import AddMarketingUser from './pages/Admin/AddMarketingUser';
 import AdminUserManagement from './pages/Admin/AdminUserManagement';
+import AddAdminUser from './pages/Admin/AddAdminUser';
 import AdminProfile from './pages/Admin/AdminProfile';
 
 const NotFound = () => <div className="container-custom py-20 text-center text-2xl font-serif text-gray-500">404 - Halaman Tidak Ditemukan</div>;
@@ -78,6 +81,7 @@ function App() {
           <Route path="properties/edit/:id" element={<EditProperty />} />
           <Route path="promos" element={<PromoManagement />} />
           <Route path="promos/add" element={<AddPromo />} />
+          <Route path="promos/:id" element={<PromoDetailAdmin />} />
           <Route path="promos/edit/:id" element={<EditPromo />} />
           <Route path="bookings" element={<BookingManagement />} />
           <Route path="bookings/:id" element={<BookingDetail />} />
@@ -85,7 +89,9 @@ function App() {
           <Route path="kpr" element={<KprManagement />} />
           <Route path="company-profile" element={<CompanyProfileManagement />} />
           <Route path="marketing-users" element={<MarketingUserManagement />} />
+          <Route path="marketing-users/add" element={<AddMarketingUser />} />
           <Route path="admin-users" element={<AdminUserManagement />} />
+          <Route path="admin-users/add" element={<AddAdminUser />} />
         </Route>
       </Route>
     </Routes>

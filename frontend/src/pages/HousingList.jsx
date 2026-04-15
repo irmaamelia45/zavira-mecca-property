@@ -94,7 +94,7 @@ export default function HousingList() {
                 }
                 const data = await response.json();
                 setPromos(normalizeListPayload(data).map(mapPromoFromApi));
-            } catch (err) {
+            } catch {
                 // Silent fail for promo pricing.
                 setPromos([]);
             }

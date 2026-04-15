@@ -28,6 +28,7 @@ export default function Booking() {
         pekerjaan: '',
         jenis_pekerjaan: 'fixed_income',
         gaji_bulanan: '',
+        memiliki_angsuran_lain: '0',
     });
 
     const [file, setFile] = useState(null);
@@ -82,8 +83,44 @@ export default function Booking() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setSubmitting(true);
         setFormError('');
+
+        const requiredTextFields = [
+            { key: 'nama', label: 'Nama lengkap' },
+            { key: 'no_hp', label: 'No. WhatsApp' },
+            { key: 'email', label: 'Alamat email' },
+            { key: 'alamat', label: 'Alamat domisili' },
+            { key: 'pekerjaan', label: 'Pekerjaan' },
+        ];
+
+        for (const field of requiredTextFields) {
+            if (!String(userForm?.[field.key] || '').trim()) {
+                setFormError(`${field.label} wajib diisi.`);
+                return;
+            }
+        }
+
+        if (!String(userForm?.jenis_pekerjaan || '').trim()) {
+            setFormError('Jenis pekerjaan wajib dipilih.');
+            return;
+        }
+
+        if (!String(parseCurrencyInput(userForm?.gaji_bulanan || '')).trim()) {
+            setFormError('Gaji per bulan wajib diisi.');
+            return;
+        }
+
+        if (!['0', '1'].includes(String(userForm?.memiliki_angsuran_lain))) {
+            setFormError('Jawaban angsuran lain wajib dipilih.');
+            return;
+        }
+
+        if (!file) {
+            setFormError('Mohon upload 1 file PDF gabungan KTP dan slip gaji.');
+            return;
+        }
+
+        setSubmitting(true);
 
         try {
             const payload = new FormData();
@@ -100,10 +137,7 @@ export default function Booking() {
             payload.append('pekerjaan', userForm.pekerjaan);
             payload.append('jenis_pekerjaan', userForm.jenis_pekerjaan);
             payload.append('gaji_bulanan', String(parseCurrencyInput(userForm.gaji_bulanan) || '0'));
-
-            if (!file) {
-                throw new Error('Mohon upload 1 file PDF gabungan KTP dan slip gaji.');
-            }
+            payload.append('memiliki_angsuran_lain', userForm.memiliki_angsuran_lain);
 
             payload.append('dokumen', file);
 
@@ -175,7 +209,7 @@ export default function Booking() {
                 }
                 const data = await response.json();
                 setPromos((data || []).map(mapPromoFromApi));
-            } catch (err) {
+            } catch {
                 setPromos([]);
             }
         };
@@ -363,6 +397,20 @@ export default function Booking() {
                                             onChange={handleSalaryChange}
                                             required
                                         />
+                                        <div className="w-full">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1 ml-1">
+                                                Apakah Anda memiliki angsuran lain yang sedang berjalan?
+                                            </label>
+                                            <select
+                                                value={userForm.memiliki_angsuran_lain}
+                                                onChange={(e) => setUserForm((prev) => ({ ...prev, memiliki_angsuran_lain: e.target.value }))}
+                                                className="flex h-11 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition-all focus:outline-none focus:ring-2 focus:ring-primary-500/25 focus:border-primary-500 hover:border-gray-400"
+                                                required
+                                            >
+                                                <option value="0">Tidak</option>
+                                                <option value="1">Ya</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
 

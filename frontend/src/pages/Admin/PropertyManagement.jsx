@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { Card, CardContent } from '../../components/ui/Card';
-import { FaPlus, FaSearch, FaSlidersH, FaMapMarkerAlt, FaHome, FaBookmark, FaBuilding, FaCheckCircle, FaChevronDown, FaChevronUp, FaCheck } from 'react-icons/fa';
+import { FaPlus, FaSearch, FaSlidersH, FaMapMarkerAlt, FaHome, FaBuilding, FaChevronDown, FaChevronUp, FaCheck } from 'react-icons/fa';
 import { API_BASE } from '../../utils/property';
 import { authHeaders } from '../../lib/auth';
 
@@ -142,16 +142,17 @@ export default function PropertyManagement() {
 
     const summary = useMemo(() => {
         const total = properties.length;
-        const totalActive = properties.filter((item) => item.isActive).length;
-        const totalInactive = total - totalActive;
-        const totalAvailableUnits = properties.reduce((acc, item) => acc + (Number(item.availableUnits) || 0), 0);
-        const totalSoldUnits = properties.reduce((acc, item) => {
-            const totalUnits = Number(item.totalUnits) || 0;
-            const available = Number(item.availableUnits) || 0;
-            return acc + Math.max(totalUnits - available, 0);
-        }, 0);
+        const totalSubsidi = properties.filter(
+            (item) => String(item?.category || '').toLowerCase() === 'subsidi'
+        ).length;
+        const totalKomersil = properties.filter(
+            (item) => String(item?.category || '').toLowerCase() === 'komersil'
+        ).length;
+        const totalTownhouse = properties.filter(
+            (item) => String(item?.category || '').toLowerCase() === 'townhouse'
+        ).length;
 
-        return { total, totalActive, totalInactive, totalAvailableUnits, totalSoldUnits };
+        return { total, totalSubsidi, totalKomersil, totalTownhouse };
     }, [properties]);
 
     const statCards = useMemo(() => ([
@@ -159,37 +160,33 @@ export default function PropertyManagement() {
             key: 'total',
             label: 'Total Perumahan',
             value: summary.total,
-            desc: 'Unit terdaftar saat ini',
+            desc: 'Total seluruh perumahan',
             icon: FaBuilding,
-            iconClass: 'text-[#35518b] bg-[#edf3ff]',
-            accentClass: 'bg-[#35518b]',
+            toneClass: 'tone-indigo',
         },
         {
-            key: 'active',
-            label: 'Perumahan Aktif',
-            value: summary.totalActive,
-            desc: `${summary.totalInactive} nonaktif`,
-            icon: FaCheckCircle,
-            iconClass: 'text-[#35518b] bg-[#edf3ff]',
-            accentClass: 'bg-[#35518b]',
-        },
-        {
-            key: 'available',
-            label: 'Unit Tersedia',
-            value: summary.totalAvailableUnits,
-            desc: 'Akumulasi semua perumahan',
+            key: 'subsidi',
+            label: 'Perumahan Subsidi',
+            value: summary.totalSubsidi,
+            desc: 'Total perumahan subsidi',
             icon: FaHome,
-            iconClass: 'text-[#35518b] bg-[#edf3ff]',
-            accentClass: 'bg-[#35518b]',
+            toneClass: 'tone-rose',
         },
         {
-            key: 'sold',
-            label: 'Unit Terjual',
-            value: summary.totalSoldUnits,
-            desc: 'Akumulasi unit yang sudah terjual',
-            icon: FaBookmark,
-            iconClass: 'text-[#35518b] bg-[#edf3ff]',
-            accentClass: 'bg-[#35518b]',
+            key: 'komersil',
+            label: 'Perumahan Komersil',
+            value: summary.totalKomersil,
+            desc: 'Total perumahan komersil',
+            icon: FaHome,
+            toneClass: 'tone-amber',
+        },
+        {
+            key: 'townhouse',
+            label: 'Perumahan Townhouse',
+            value: summary.totalTownhouse,
+            desc: 'Total perumahan townhouse',
+            icon: FaHome,
+            toneClass: 'tone-sky',
         },
     ]), [summary]);
 
@@ -250,22 +247,20 @@ export default function PropertyManagement() {
                 {statCards.map((card) => {
                     const Icon = card.icon;
                     return (
-                        <div
-                            key={card.key}
-                            className="rounded-2xl border border-[#e7dfd0] bg-white overflow-hidden shadow-sm"
-                        >
-                            <div className={`h-1 ${card.accentClass}`} />
-                            <div className="p-5">
-                                <div className="flex items-start justify-between gap-4">
-                                    <p className="text-sm font-semibold text-slate-600">{card.label}</p>
-                                    <div className={`h-11 w-11 rounded-xl flex items-center justify-center ${card.iconClass}`}>
-                                        <Icon />
+                        <article key={card.key} className={`admin-stat-card ${card.toneClass}`}>
+                            <div className="admin-stat-head">
+                                <div className="admin-stat-info">
+                                    <p className="admin-stat-label">{card.label}</p>
+                                    <p className="admin-stat-value">{card.value}</p>
+                                    <div className="admin-stat-meta">
+                                        <p className="admin-stat-desc">{card.desc}</p>
+                                        <div className="admin-stat-icon">
+                                            <Icon />
+                                        </div>
                                     </div>
                                 </div>
-                                <p className="text-4xl font-bold text-[#0b1e45] mt-1 leading-none">{card.value}</p>
-                                <p className="text-xs text-slate-500 mt-2">{card.desc}</p>
                             </div>
-                        </div>
+                        </article>
                     );
                 })}
             </div>
@@ -379,15 +374,15 @@ export default function PropertyManagement() {
 
                     <div className="overflow-x-auto">
                         <table className="w-full text-[13px] text-left min-w-[980px]">
-                            <thead className="bg-primary-50/40 text-primary-700 font-semibold uppercase text-[11px] tracking-[0.05em]">
+                            <thead className="font-semibold uppercase text-[11px] tracking-[0.05em]">
                                 <tr>
-                                    <th className="px-6 py-4">Perumahan</th>
-                                    <th className="px-6 py-4">Lokasi</th>
-                                    <th className="px-6 py-4">Kategori</th>
-                                    <th className="px-6 py-4">Harga</th>
-                                    <th className="px-6 py-4 text-center">Stok</th>
-                                    <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4 text-center">Aksi</th>
+                                    <th className="px-6 py-4 !bg-primary-700 !text-white">Perumahan</th>
+                                    <th className="px-6 py-4 !bg-primary-700 !text-white">Lokasi</th>
+                                    <th className="px-6 py-4 !bg-primary-700 !text-white">Kategori</th>
+                                    <th className="px-6 py-4 !bg-primary-700 !text-white">Harga</th>
+                                    <th className="px-6 py-4 text-center !bg-primary-700 !text-white">Stok</th>
+                                    <th className="px-6 py-4 !bg-primary-700 !text-white">Status</th>
+                                    <th className="px-6 py-4 text-center !bg-primary-700 !text-white">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">

@@ -78,7 +78,7 @@ export default function HousingDetail() {
                 }
                 const data = await response.json();
                 setPromos((data || []).map(mapPromoFromApi));
-            } catch (err) {
+            } catch {
                 // Silent fail for promo section
             }
         };

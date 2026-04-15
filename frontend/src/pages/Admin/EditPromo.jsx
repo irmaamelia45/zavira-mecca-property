@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FaArrowLeft, FaSave, FaImage, FaTimes } from 'react-icons/fa';
+import { FaArrowLeft, FaSave } from 'react-icons/fa';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { Card, CardContent } from '../../components/ui/Card';
-import { API_BASE, resolveImage } from '../../utils/promo';
+import { API_BASE } from '../../utils/promo';
 import { authHeaders } from '../../lib/auth';
 
 export default function EditPromo() {
@@ -26,11 +26,6 @@ export default function EditPromo() {
         description: '',
     });
     const [formErrors, setFormErrors] = useState({});
-
-    // Image Upload State
-    const [imagePreview, setImagePreview] = useState(null);
-    const [selectedFile, setSelectedFile] = useState(null);
-    const fileInputRef = useRef(null);
 
     const [propertyOptions, setPropertyOptions] = useState([]);
     const [propertyLoading, setPropertyLoading] = useState(true);
@@ -78,10 +73,6 @@ export default function EditPromo() {
                     isActive: Boolean(data.is_active),
                     description: data.deskripsi || '',
                 });
-
-                if (data.banner_path) {
-                    setImagePreview(resolveImage(data.banner_path));
-                }
             } catch (err) {
                 setFormErrors((prev) => ({ ...prev, submit: err.message || 'Gagal memuat data promo.' }));
             } finally {
@@ -110,33 +101,6 @@ export default function EditPromo() {
         });
         if (formErrors.propertyIds) {
             setFormErrors(prev => ({ ...prev, propertyIds: '' }));
-        }
-    };
-
-    const handleImageClick = () => {
-        if (fileInputRef.current) {
-            fileInputRef.current.click();
-        }
-    };
-
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setSelectedFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImagePreview(reader.result);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    const handleRemoveImage = (e) => {
-        e.stopPropagation();
-        setImagePreview(null);
-        setSelectedFile(null);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
         }
     };
 
@@ -184,9 +148,6 @@ export default function EditPromo() {
             payload.append('deskripsi', formData.description || '');
             payload.append('_method', 'PUT');
             formData.propertyIds.forEach((idValue) => payload.append('property_ids[]', idValue));
-            if (selectedFile) {
-                payload.append('banner', selectedFile);
-            }
 
             const response = await fetch(`${API_BASE}/api/promos/${id}`, {
                 method: 'POST',
@@ -233,9 +194,8 @@ export default function EditPromo() {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Column: Promo Details */}
-                <div className="lg:col-span-2 space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-6">
                     <Card className="border-none shadow-md">
                         <CardContent className="p-6 space-y-4">
                             <h3 className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">Detail Promo</h3>
@@ -374,54 +334,6 @@ export default function EditPromo() {
                             {formErrors.submit && (
                                 <p className="text-sm text-red-600 font-medium">{formErrors.submit}</p>
                             )}
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Right Column: Banner Image */}
-                <div className="space-y-6">
-                    <Card className="border-none shadow-md">
-                        <CardContent className="p-6 space-y-4">
-                            <h3 className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">Banner Promo</h3>
-
-                            <input
-                                type="file"
-                                accept="image/*"
-                                ref={fileInputRef}
-                                onChange={handleFileChange}
-                                className="hidden"
-                            />
-
-                            <div
-                                onClick={handleImageClick}
-                                className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer relative ${imagePreview ? 'border-primary-500 bg-gray-50' : 'border-gray-300 hover:border-primary-500 bg-gray-50'
-                                    }`}
-                                style={{ minHeight: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
-                            >
-                                {imagePreview ? (
-                                    <div className="relative w-full h-full group">
-                                        <img
-                                            src={imagePreview}
-                                            alt="Preview"
-                                            className="w-full h-auto object-cover rounded-md"
-                                        />
-                                        <button
-                                            onClick={handleRemoveImage}
-                                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition shadow-md md:opacity-0 md:group-hover:opacity-100"
-                                            title="Hapus Banner"
-                                        >
-                                            <FaTimes size={12} />
-                                        </button>
-                                        <p className="text-xs text-center text-gray-500 mt-2 truncate w-full px-2">{selectedFile?.name}</p>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <FaImage className="mx-auto text-4xl text-gray-400 mb-2" />
-                                        <p className="text-sm text-gray-600 font-medium">Klik atau drop untuk upload banner</p>
-                                        <p className="text-xs text-gray-400 mt-1">Format: JPG, PNG (Max 2MB)</p>
-                                    </>
-                                )}
-                            </div>
                         </CardContent>
                     </Card>
                 </div>

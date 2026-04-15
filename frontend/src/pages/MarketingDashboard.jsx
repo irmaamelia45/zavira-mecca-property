@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaClipboardList } from 'react-icons/fa';
 import { FiActivity, FiCheckCircle, FiClock, FiFlag, FiSearch, FiXCircle } from 'react-icons/fi';
@@ -65,6 +65,7 @@ export default function MarketingDashboard() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState('');
+    const hasFetchedRef = useRef(false);
     const [userName, setUserName] = useState(() => {
         const user = getStoredUser();
         return user?.nama || 'Marketing';
@@ -99,7 +100,7 @@ export default function MarketingDashboard() {
     useEffect(() => {
         const fetchDashboard = async () => {
             setError('');
-            if (loading) {
+            if (!hasFetchedRef.current) {
                 setLoading(true);
             } else {
                 setRefreshing(true);
@@ -129,6 +130,7 @@ export default function MarketingDashboard() {
             } finally {
                 setLoading(false);
                 setRefreshing(false);
+                hasFetchedRef.current = true;
             }
         };
 

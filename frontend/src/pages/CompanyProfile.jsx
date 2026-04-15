@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { FaAward, FaRegBuilding, FaUsers, FaCompass, FaBullseye } from 'react-icons/fa';
 import { Card, CardContent } from '../components/ui/Card';
 import logo from '../assets/logo_pt.png';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+import { fetchJsonWithFallback, resolveImage as resolveApiImage } from '../utils/promo';
 
 const defaultProfile = {
     nama_perusahaan: '',
@@ -21,11 +20,7 @@ export default function CompanyProfile() {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const response = await fetch(`${API_BASE}/api/company-profile`);
-                if (!response.ok) {
-                    throw new Error('Gagal memuat profil perusahaan.');
-                }
-                const data = await response.json();
+                const data = await fetchJsonWithFallback('/api/company-profile');
                 if (data) {
                     setProfile((prev) => ({
                         ...prev,
@@ -42,8 +37,7 @@ export default function CompanyProfile() {
 
     const resolveImage = (path) => {
         if (!path) return '';
-        if (path.startsWith('http')) return path;
-        return `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+        return resolveApiImage(path);
     };
 
     const missionItems = useMemo(() => {

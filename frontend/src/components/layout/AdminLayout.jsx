@@ -119,7 +119,7 @@ export default function AdminLayout() {
     const isProfileActive = location.pathname.startsWith('/admin/profile') || location.pathname.startsWith('/admin/profil');
 
     return (
-        <div className="admin-ui min-h-screen bg-[#f8f7f3] font-sans text-slate-800">
+        <div className="admin-ui min-h-screen bg-[#f8f7f3] font-serif text-slate-800">
             <header className="fixed inset-x-0 top-0 z-50 h-16 border-b border-[#e7dfd0] bg-[#fdfcf9]/95 backdrop-blur-sm">
                 <div className="h-full px-3 sm:px-4 md:px-6 lg:px-8 flex items-center justify-between gap-2 sm:gap-4">
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">

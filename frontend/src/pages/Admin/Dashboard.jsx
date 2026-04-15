@@ -1,5 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { FaHome, FaUserTie, FaMoneyBillWave, FaBookmark, FaEllipsisV } from 'react-icons/fa';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+    FaHome,
+    FaUserTie,
+    FaMoneyBillWave,
+    FaBookmark,
+    FaEllipsisV,
+    FaSlidersH,
+    FaChevronDown,
+    FaChevronUp,
+    FaCheck,
+} from 'react-icons/fa';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend,
     PieChart, Pie, Cell
@@ -8,11 +18,52 @@ import logoPt from '../../assets/logo_pt.png';
 import { API_BASE } from '../../utils/promo';
 import { authHeaders, getStoredUser } from '../../lib/auth';
 
+const DEFAULT_CARDS = Object.freeze({
+    subsidi: 0,
+    komersil: 0,
+    townhouse: 0,
+    total_booking: 0,
+});
+
+const PROPERTY_CATEGORY_SECTIONS = [
+    { key: 'subsidi', label: 'Perumahan Subsidi' },
+    { key: 'komersil', label: 'Perumahan Komersil' },
+    { key: 'townhouse', label: 'Townhouse' },
+    { key: 'lainnya', label: 'Lainnya' },
+];
+
 export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [summary, setSummary] = useState(null);
+    const [selectedPropertyFilter, setSelectedPropertyFilter] = useState('all');
+    const [propertyFilterMenuOpen, setPropertyFilterMenuOpen] = useState(false);
+    const propertyFilterPopoverRef = useRef(null);
     const user = getStoredUser();
+
+    useEffect(() => {
+        if (!propertyFilterMenuOpen) return undefined;
+
+        const handleClickOutside = (event) => {
+            if (propertyFilterPopoverRef.current && !propertyFilterPopoverRef.current.contains(event.target)) {
+                setPropertyFilterMenuOpen(false);
+            }
+        };
+
+        const handleEscape = (event) => {
+            if (event.key === 'Escape') {
+                setPropertyFilterMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [propertyFilterMenuOpen]);
 
     useEffect(() => {
         const fetchSummary = async () => {
@@ -26,7 +77,45 @@ export default function Dashboard() {
                     throw new Error('Gagal memuat data dashboard.');
                 }
                 const data = await response.json();
-                setSummary(data);
+
+                let propertyCountByCategory = null;
+                let propertyCategoryLookup = null;
+                try {
+                    const propertyResponse = await fetch(`${API_BASE}/api/admin/perumahan`, {
+                        headers: authHeaders(),
+                    });
+
+                    if (propertyResponse.ok) {
+                        const properties = await propertyResponse.json();
+                        const counts = { subsidi: 0, komersil: 0, townhouse: 0 };
+                        const categoryLookup = {};
+
+                        (properties || []).forEach((property) => {
+                            const key = String(property?.category || '').toLowerCase();
+                            if (property?.id !== undefined && property?.id !== null) {
+                                categoryLookup[String(property.id)] = key;
+                            }
+                            if (Object.prototype.hasOwnProperty.call(counts, key)) {
+                                counts[key] += 1;
+                            }
+                        });
+
+                        propertyCountByCategory = counts;
+                        propertyCategoryLookup = categoryLookup;
+                    }
+                } catch {
+                    // Keep fallback to summary cards when perumahan list fails to load.
+                }
+
+                setSummary({
+                    ...data,
+                    cards: {
+                        ...DEFAULT_CARDS,
+                        ...(data?.cards || {}),
+                        ...(propertyCountByCategory || {}),
+                    },
+                    property_category_lookup: propertyCategoryLookup || {},
+                });
             } catch (err) {
                 setError(err.message || 'Gagal memuat data dashboard.');
             } finally {
@@ -38,40 +127,32 @@ export default function Dashboard() {
     }, []);
 
     const salesData = summary?.sales_data || [];
-    const cards = summary?.cards || {
-        subsidi: 0,
-        komersil: 0,
-        townhouse: 0,
-        total_booking: 0,
-    };
+    const cards = useMemo(() => summary?.cards || DEFAULT_CARDS, [summary?.cards]);
 
     const statCards = useMemo(() => ([
         {
             key: 'subsidi',
             label: 'Perumahan Subsidi',
             value: cards.subsidi,
-            desc: 'Unit kategori subsidi',
+            desc: 'Total perumahan subsidi',
             Icon: FaHome,
-            iconClass: 'text-[#35518b] bg-[#edf3ff]',
-            accentClass: 'bg-[#35518b]',
+            toneClass: 'tone-rose',
         },
         {
             key: 'komersil',
             label: 'Perumahan Komersil',
             value: cards.komersil,
-            desc: 'Unit kategori komersil',
+            desc: 'Total perumahan komersil',
             Icon: FaHome,
-            iconClass: 'text-[#35518b] bg-[#edf3ff]',
-            accentClass: 'bg-[#35518b]',
+            toneClass: 'tone-amber',
         },
         {
             key: 'townhouse',
             label: 'Perumahan Townhouse',
             value: cards.townhouse,
-            desc: 'Unit kategori townhouse',
+            desc: 'Total perumahan townhouse',
             Icon: FaHome,
-            iconClass: 'text-[#35518b] bg-[#edf3ff]',
-            accentClass: 'bg-[#35518b]',
+            toneClass: 'tone-sky',
         },
         {
             key: 'total_booking',
@@ -79,21 +160,90 @@ export default function Dashboard() {
             value: cards.total_booking,
             desc: 'Seluruh booking terdaftar',
             Icon: FaBookmark,
-            iconClass: 'text-[#35518b] bg-[#edf3ff]',
-            accentClass: 'bg-[#35518b]',
+            toneClass: 'tone-indigo',
         },
     ]), [cards]);
 
-    const propertyStatusData = useMemo(() => {
-        const terjual = summary?.property_status?.terjual || 0;
-        const tersedia = summary?.property_status?.tersedia || 0;
-        return [
-            { name: 'Terjual', value: terjual, color: '#35518b' },
-            { name: 'Tersedia', value: tersedia, color: '#10b981' },
-        ];
-    }, [summary]);
+    const propertyFilterOptions = useMemo(() => {
+        const rawOptions = summary?.property_filter_options || summary?.property_status_by_property || [];
+        const categoryLookup = summary?.property_category_lookup || {};
 
-    const totalUnit = summary?.property_status?.total_unit || 0;
+        return rawOptions
+            .map((item) => ({
+                id: String(item?.id ?? ''),
+                name: item?.name || '-',
+                category: String(categoryLookup[String(item?.id)] || '').toLowerCase(),
+            }))
+            .filter((item) => item.id)
+            .sort((a, b) => a.name.localeCompare(b.name, 'id-ID'));
+    }, [summary?.property_filter_options, summary?.property_status_by_property, summary?.property_category_lookup]);
+
+    const groupedPropertyFilterOptions = useMemo(() => {
+        const grouped = {
+            subsidi: [],
+            komersil: [],
+            townhouse: [],
+            lainnya: [],
+        };
+
+        propertyFilterOptions.forEach((item) => {
+            if (Object.prototype.hasOwnProperty.call(grouped, item.category)) {
+                grouped[item.category].push(item);
+                return;
+            }
+            grouped.lainnya.push(item);
+        });
+
+        return grouped;
+    }, [propertyFilterOptions]);
+
+    const selectedPropertyLabel = useMemo(() => {
+        if (selectedPropertyFilter === 'all') {
+            return 'All';
+        }
+        return propertyFilterOptions.find((item) => item.id === String(selectedPropertyFilter))?.name || 'All';
+    }, [propertyFilterOptions, selectedPropertyFilter]);
+
+    const selectedPropertyStatus = useMemo(() => {
+        const fallback = {
+            tersedia: Number(summary?.property_status?.tersedia) || 0,
+            terbooking: Number(summary?.property_status?.terbooking ?? summary?.property_status?.terjual) || 0,
+            proses_booking: Number(summary?.property_status?.proses_booking) || 0,
+            total_unit: Number(summary?.property_status?.total_unit) || 0,
+        };
+
+        if (selectedPropertyFilter === 'all') {
+            return fallback;
+        }
+
+        const selectedItem = (summary?.property_status_by_property || []).find(
+            (item) => String(item?.id) === String(selectedPropertyFilter)
+        );
+
+        if (!selectedItem) {
+            return {
+                tersedia: 0,
+                terbooking: 0,
+                proses_booking: 0,
+                total_unit: 0,
+            };
+        }
+
+        return {
+            tersedia: Number(selectedItem?.tersedia) || 0,
+            terbooking: Number(selectedItem?.terbooking ?? selectedItem?.terjual) || 0,
+            proses_booking: Number(selectedItem?.proses_booking) || 0,
+            total_unit: Number(selectedItem?.total_unit) || 0,
+        };
+    }, [summary, selectedPropertyFilter]);
+
+    const propertyStatusData = useMemo(() => ([
+        { name: 'Tersedia', value: selectedPropertyStatus.tersedia, color: '#10b981' },
+        { name: 'Terbooking', value: selectedPropertyStatus.terbooking, color: '#ef4444' },
+        { name: 'Proses Booking', value: selectedPropertyStatus.proses_booking, color: '#f59e0b' },
+    ]), [selectedPropertyStatus]);
+
+    const totalUnit = selectedPropertyStatus.total_unit || 0;
     const recentBookingsData = summary?.recent_bookings || [];
     const recentActivities = summary?.recent_activities || [];
 
@@ -160,21 +310,20 @@ export default function Dashboard() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 {statCards.map((item) => (
-                    <div key={item.key} className="rounded-2xl border border-[#e7dfd0] bg-white overflow-hidden shadow-sm">
-                        <div className={`h-1 ${item.accentClass}`} />
-                        <div className="p-5">
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <p className="text-sm font-semibold text-slate-600">{item.label}</p>
-                                    <p className="text-4xl font-bold text-[#0b1e45] mt-2 leading-none">{item.value}</p>
-                                    <p className="text-xs text-slate-500 mt-2">{item.desc}</p>
-                                </div>
-                                <div className={`h-11 w-11 rounded-xl flex items-center justify-center ${item.iconClass}`}>
-                                    <item.Icon />
+                    <article key={item.key} className={`admin-stat-card ${item.toneClass}`}>
+                        <div className="admin-stat-head">
+                            <div className="admin-stat-info">
+                                <p className="admin-stat-label">{item.label}</p>
+                                <p className="admin-stat-value">{item.value}</p>
+                                <div className="admin-stat-meta">
+                                    <p className="admin-stat-desc">{item.desc}</p>
+                                    <div className="admin-stat-icon">
+                                        <item.Icon />
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </article>
                 ))}
             </div>
 
@@ -210,9 +359,81 @@ export default function Dashboard() {
                 </div>
 
                 <div className="rounded-2xl border border-[#e7dfd0] bg-white p-5 shadow-sm">
-                    <div className="flex justify-between items-center mb-2">
+                    <div className="flex justify-between items-center mb-2 gap-2">
                         <h2 className="text-xl font-bold text-[#0b1e45]">Status Properti</h2>
-                        <button className="text-slate-400 hover:text-slate-600"><FaEllipsisV size={14} /></button>
+                        <div className="relative" ref={propertyFilterPopoverRef}>
+                            <button
+                                type="button"
+                                onClick={() => setPropertyFilterMenuOpen((prev) => !prev)}
+                                disabled={loading}
+                                className="inline-flex h-9 min-w-[190px] items-center justify-between rounded-full border border-[#e7dfd0] bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary-300 disabled:opacity-60"
+                            >
+                                <span className="inline-flex items-center gap-2">
+                                    <FaSlidersH className="text-[10px]" />
+                                    {selectedPropertyLabel}
+                                </span>
+                                {propertyFilterMenuOpen ? <FaChevronUp className="text-[10px]" /> : <FaChevronDown className="text-[10px]" />}
+                            </button>
+
+                            {propertyFilterMenuOpen && (
+                                <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[min(90vw,330px)] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.35)]">
+                                    <p className="px-1 text-[11px] font-semibold tracking-[0.12em] text-slate-500 uppercase">Kategori</p>
+                                    <div className="mt-2 space-y-1 border-b border-slate-200 pb-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedPropertyFilter('all');
+                                                setPropertyFilterMenuOpen(false);
+                                            }}
+                                            className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm transition-colors ${
+                                                selectedPropertyFilter === 'all'
+                                                    ? 'bg-primary-50 text-primary-700 font-medium'
+                                                    : 'text-slate-700 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <span>All</span>
+                                            {selectedPropertyFilter === 'all' && <FaCheck className="text-xs" />}
+                                        </button>
+                                    </div>
+
+                                    {PROPERTY_CATEGORY_SECTIONS.map((section) => {
+                                        const options = groupedPropertyFilterOptions[section.key] || [];
+                                        if (options.length === 0) {
+                                            return null;
+                                        }
+
+                                        return (
+                                            <div key={section.key} className="mt-3 first:mt-2">
+                                                <p className="px-1 text-[11px] font-semibold tracking-[0.12em] text-slate-500 uppercase">{section.label}</p>
+                                                <div className="mt-2 space-y-1">
+                                                    {options.map((option) => {
+                                                        const isActive = String(selectedPropertyFilter) === option.id;
+                                                        return (
+                                                            <button
+                                                                key={option.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSelectedPropertyFilter(option.id);
+                                                                    setPropertyFilterMenuOpen(false);
+                                                                }}
+                                                                className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm transition-colors ${
+                                                                    isActive
+                                                                        ? 'bg-primary-50 text-primary-700 font-medium'
+                                                                        : 'text-slate-700 hover:bg-slate-50'
+                                                                }`}
+                                                            >
+                                                                <span className="truncate text-left">{option.name}</span>
+                                                                {isActive && <FaCheck className="text-xs shrink-0" />}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </div>
                     <div className="h-64 relative flex justify-center items-center">
                         {loading ? (

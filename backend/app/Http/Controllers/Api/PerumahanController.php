@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Booking;
 use App\Models\Perumahan;
 use App\Models\PerumahanMedia;
 use App\Models\PerumahanUnit;
@@ -218,7 +219,25 @@ class PerumahanController extends Controller
             return response()->json(['message' => 'Perumahan tidak ditemukan.'], 404);
         }
 
-        $property->delete();
+        $activeBookingStatuses = ['Menunggu', 'Disetujui'];
+        $activeBookingCount = Booking::query()
+            ->where('id_perumahan', $property->id_perumahan)
+            ->whereIn('status_booking', $activeBookingStatuses)
+            ->count();
+
+        if ($activeBookingCount > 0) {
+            return response()->json([
+                'message' => 'Perumahan tidak dapat dihapus karena masih memiliki booking aktif (Menunggu/Disetujui).',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($property) {
+            Booking::query()
+                ->where('id_perumahan', $property->id_perumahan)
+                ->delete();
+
+            $property->delete();
+        });
 
         return response()->json(['message' => 'Perumahan berhasil dihapus.']);
     }

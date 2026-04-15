@@ -145,6 +145,8 @@ export default function AccountBookingDetail() {
         return '-';
     };
 
+    const formatInstallmentStatus = (value) => (value ? 'Ya' : 'Tidak');
+
     const normalizeBookingStatus = (value) => {
         const status = String(value || '').trim().toLowerCase();
         if (status === 'menunggu' || status === 'menunggu konfirmasi') return 'pending';
@@ -304,6 +306,10 @@ export default function AccountBookingDetail() {
                         <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
                             <p className="text-gray-500">Gaji per Bulan</p>
                             <p className="font-semibold text-gray-900">{formatMoney(booking.gaji_bulanan || 0)}</p>
+                        </div>
+                        <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
+                            <p className="text-gray-500">Angsuran Lain Berjalan</p>
+                            <p className="font-semibold text-gray-900">{formatInstallmentStatus(booking.memiliki_angsuran_lain)}</p>
                         </div>
                         <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
                             <p className="text-gray-500">Selesai Pada</p>

@@ -34,7 +34,6 @@ export default function Navbar() {
             setUserRole(user?.role || '');
         };
         syncAuth();
-        setMobileMenuOpen(false);
     }, [location.pathname]);
 
     const navLinks = [
@@ -56,7 +55,7 @@ export default function Navbar() {
                 method: 'POST',
                 headers: authHeaders(),
             });
-        } catch (err) {
+        } catch {
             // Ignore logout API failure.
         }
 

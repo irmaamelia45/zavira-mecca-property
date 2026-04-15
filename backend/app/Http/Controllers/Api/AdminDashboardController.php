@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Perumahan;
+use App\Models\PerumahanUnit;
 use Illuminate\Support\Carbon;
 
 class AdminDashboardController extends Controller
@@ -13,12 +14,13 @@ class AdminDashboardController extends Controller
     {
         $properties = Perumahan::query()->get([
             'id_perumahan',
+            'nama_perumahan',
             'kategori',
             'jumlah_seluruh_unit',
             'jumlah_unit_tersedia',
         ]);
 
-        $unitByCategory = [
+        $propertyCountByCategory = [
             'subsidi' => 0,
             'komersil' => 0,
             'townhouse' => 0,
@@ -26,14 +28,81 @@ class AdminDashboardController extends Controller
 
         foreach ($properties as $property) {
             $category = strtolower((string) $property->kategori);
-            if (array_key_exists($category, $unitByCategory)) {
-                $unitByCategory[$category] += (int) ($property->jumlah_seluruh_unit ?? 0);
+            if (array_key_exists($category, $propertyCountByCategory)) {
+                $propertyCountByCategory[$category]++;
             }
         }
 
-        $totalUnit = (int) $properties->sum('jumlah_seluruh_unit');
-        $totalAvailable = (int) $properties->sum('jumlah_unit_tersedia');
-        $totalSold = max(0, $totalUnit - $totalAvailable);
+        $propertyStatusByProperty = [];
+        foreach ($properties as $property) {
+            $propertyId = (int) $property->id_perumahan;
+            $propertyStatusByProperty[$propertyId] = [
+                'id' => $propertyId,
+                'name' => (string) ($property->nama_perumahan ?? '-'),
+                'tersedia' => 0,
+                'terbooking' => 0,
+                'proses_booking' => 0,
+                'total_unit' => 0,
+                'has_unit_data' => false,
+            ];
+        }
+
+        $unitStatusRows = PerumahanUnit::query()
+            ->selectRaw('id_perumahan, status_unit, COUNT(*) as total')
+            ->groupBy('id_perumahan', 'status_unit')
+            ->get();
+
+        foreach ($unitStatusRows as $row) {
+            $propertyId = (int) $row->id_perumahan;
+            if (! isset($propertyStatusByProperty[$propertyId])) {
+                continue;
+            }
+
+            $propertyStatusByProperty[$propertyId]['has_unit_data'] = true;
+
+            $status = strtolower((string) $row->status_unit);
+            $total = (int) $row->total;
+            if ($status === 'available') {
+                $propertyStatusByProperty[$propertyId]['tersedia'] += $total;
+            } elseif ($status === 'pending') {
+                $propertyStatusByProperty[$propertyId]['proses_booking'] += $total;
+            } elseif ($status === 'sold') {
+                $propertyStatusByProperty[$propertyId]['terbooking'] += $total;
+            }
+        }
+
+        foreach ($properties as $property) {
+            $propertyId = (int) $property->id_perumahan;
+            if (! isset($propertyStatusByProperty[$propertyId])) {
+                continue;
+            }
+
+            // Fallback untuk data lama yang belum punya baris unit terpisah.
+            if (! $propertyStatusByProperty[$propertyId]['has_unit_data']) {
+                $totalUnitFallback = (int) ($property->jumlah_seluruh_unit ?? 0);
+                $availableFallback = (int) ($property->jumlah_unit_tersedia ?? 0);
+                $bookedFallback = max(0, $totalUnitFallback - $availableFallback);
+
+                $propertyStatusByProperty[$propertyId]['tersedia'] = $availableFallback;
+                $propertyStatusByProperty[$propertyId]['terbooking'] = $bookedFallback;
+                $propertyStatusByProperty[$propertyId]['proses_booking'] = 0;
+            }
+
+            $propertyStatusByProperty[$propertyId]['total_unit'] =
+                (int) $propertyStatusByProperty[$propertyId]['tersedia']
+                + (int) $propertyStatusByProperty[$propertyId]['terbooking']
+                + (int) $propertyStatusByProperty[$propertyId]['proses_booking'];
+        }
+
+        $propertyStatusItems = array_values(array_map(function ($item) {
+            unset($item['has_unit_data']);
+            return $item;
+        }, $propertyStatusByProperty));
+
+        $totalUnit = (int) array_reduce($propertyStatusItems, fn ($carry, $item) => $carry + (int) $item['total_unit'], 0);
+        $totalAvailable = (int) array_reduce($propertyStatusItems, fn ($carry, $item) => $carry + (int) $item['tersedia'], 0);
+        $totalBooked = (int) array_reduce($propertyStatusItems, fn ($carry, $item) => $carry + (int) $item['terbooking'], 0);
+        $totalInProcess = (int) array_reduce($propertyStatusItems, fn ($carry, $item) => $carry + (int) $item['proses_booking'], 0);
 
         $currentYear = now()->year;
         $monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -129,17 +198,24 @@ class AdminDashboardController extends Controller
 
         return response()->json([
             'cards' => [
-                'subsidi' => $unitByCategory['subsidi'],
-                'komersil' => $unitByCategory['komersil'],
-                'townhouse' => $unitByCategory['townhouse'],
+                'subsidi' => $propertyCountByCategory['subsidi'],
+                'komersil' => $propertyCountByCategory['komersil'],
+                'townhouse' => $propertyCountByCategory['townhouse'],
                 'total_booking' => (int) Booking::query()->count(),
             ],
             'sales_data' => array_values($salesData),
             'property_status' => [
-                'terjual' => $totalSold,
+                'terjual' => $totalBooked,
+                'terbooking' => $totalBooked,
                 'tersedia' => $totalAvailable,
+                'proses_booking' => $totalInProcess,
                 'total_unit' => $totalUnit,
             ],
+            'property_filter_options' => array_map(fn ($item) => [
+                'id' => $item['id'],
+                'name' => $item['name'],
+            ], $propertyStatusItems),
+            'property_status_by_property' => $propertyStatusItems,
             'recent_bookings' => $recentBookings,
             'recent_activities' => $recentActivities,
         ]);
