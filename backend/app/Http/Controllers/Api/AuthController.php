@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
-use App\Models\UserApiToken;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
@@ -48,13 +47,17 @@ class AuthController extends Controller
             'is_active' => true,
         ]);
 
-        [$plainToken, $tokenModel] = $this->issueToken($user, $request, $validated['device_name'] ?? 'web');
+        $newToken = $user->createToken(
+            $validated['device_name'] ?? 'web',
+            ['*'],
+            now()->addDays(30)
+        );
 
         return response()->json([
             'message' => 'Registrasi berhasil.',
-            'token' => $plainToken,
+            'token' => $newToken->plainTextToken,
             'user' => $this->formatUser($user),
-            'token_id' => $tokenModel->id_token,
+            'token_id' => $newToken->accessToken->id,
         ], 201);
     }
 
@@ -76,13 +79,17 @@ class AuthController extends Controller
             return response()->json(['message' => 'Akun tidak aktif.'], 403);
         }
 
-        [$plainToken, $tokenModel] = $this->issueToken($user, $request, $validated['device_name'] ?? 'web');
+        $newToken = $user->createToken(
+            $validated['device_name'] ?? 'web',
+            ['*'],
+            now()->addDays(30)
+        );
 
         return response()->json([
             'message' => 'Login berhasil.',
-            'token' => $plainToken,
+            'token' => $newToken->plainTextToken,
             'user' => $this->formatUser($user),
-            'token_id' => $tokenModel->id_token,
+            'token_id' => $newToken->accessToken->id,
         ]);
     }
 
@@ -95,11 +102,7 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $tokenId = $request->attributes->get('api_token_id');
-
-        if ($tokenId) {
-            UserApiToken::query()->where('id_token', $tokenId)->delete();
-        }
+        $request->user()?->currentAccessToken()?->delete();
 
         return response()->json(['message' => 'Logout berhasil.']);
     }
@@ -147,30 +150,13 @@ class AuthController extends Controller
             'password_hash' => $validated['new_password'],
         ]);
 
-        UserApiToken::query()
-            ->where('id_user', $user->id_user)
-            ->where('id_token', '!=', $request->attributes->get('api_token_id'))
+        $currentTokenId = $request->user()?->currentAccessToken()?->id;
+
+        $user->tokens()
+            ->when($currentTokenId, fn ($query) => $query->where('id', '!=', $currentTokenId))
             ->delete();
 
         return response()->json(['message' => 'Password berhasil diubah.']);
-    }
-
-    private function issueToken(User $user, Request $request, string $deviceName): array
-    {
-        $plainToken = bin2hex(random_bytes(40));
-
-        $tokenModel = UserApiToken::create([
-            'id_user' => $user->id_user,
-            'token_hash' => hash('sha256', $plainToken),
-            'device_name' => $deviceName,
-            'ip_address' => $request->ip(),
-            'user_agent' => substr((string) $request->userAgent(), 0, 255),
-            'last_used_at' => now(),
-            'expires_at' => now()->addDays(30),
-            'created_at' => now(),
-        ]);
-
-        return [$plainToken, $tokenModel];
     }
 
     private function formatUser(?User $user): array

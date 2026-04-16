@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
@@ -8,10 +8,12 @@ import { FiArrowLeft, FiCheck, FiMapPin, FiHeart, FiChevronLeft, FiChevronRight,
 import { FaWhatsapp, FaTag, FaClock } from 'react-icons/fa';
 import { API_BASE, mapPromoFromApi, formatPromoPeriod, getPromoPricing as calculatePromoPricing, isPromoActive, resolveImage } from '../utils/promo';
 import { isFavoriteProperty, toggleFavoriteProperty } from '../lib/favorites';
+import { isLoggedIn } from '../lib/auth';
 import UnitPicker from '../components/booking/UnitPicker';
 
 export default function HousingDetail() {
     const { id } = useParams();
+    const location = useLocation();
     const navigate = useNavigate();
     const [property, setProperty] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -58,7 +60,7 @@ export default function HousingDetail() {
                 };
                 setProperty(normalized);
                 setActiveImage(0);
-                setIsFavorite(isFavoriteProperty(normalized.id));
+                setIsFavorite(isLoggedIn() ? isFavoriteProperty(normalized.id) : false);
             } catch (err) {
                 setError(err.message || 'Gagal memuat detail properti.');
             } finally {
@@ -212,6 +214,20 @@ export default function HousingDetail() {
     };
 
     const toggleFavorite = () => {
+        if (!isLoggedIn()) {
+            setIsFavorite(false);
+            setFavoriteMessage('Silakan login terlebih dahulu untuk menambahkan favorit.');
+            setShowFavoriteToast(true);
+            setToastVisible(true);
+            setTimeout(() => setToastVisible(false), 1500);
+            setTimeout(() => {
+                setShowFavoriteToast(false);
+                setFavoriteMessage('');
+                navigate('/auth/login', { state: { from: location } });
+            }, 1700);
+            return;
+        }
+
         const { exists } = toggleFavoriteProperty(property.id);
         setIsFavorite(!exists);
         setFavoriteMessage(exists ? 'Dihapus dari favorit.' : 'Berhasil ditambahkan ke favorit.');

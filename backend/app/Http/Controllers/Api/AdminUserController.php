@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
-use App\Models\UserApiToken;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Password;
 
@@ -238,9 +237,7 @@ class AdminUserController extends Controller
             ]);
 
             if (! $nextStatus) {
-                UserApiToken::query()
-                    ->where('id_user', $user->id_user)
-                    ->delete();
+                $user->tokens()->delete();
             }
         }
 

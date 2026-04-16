@@ -342,11 +342,15 @@ export default function PropertyDetail() {
                                 <span className="text-3xl font-bold text-[#0b1e45]">{totalUnits}</span>
                             </div>
                         </div>
-                        <div className="flex flex-wrap gap-5 mt-3">
+                        <div className="mt-4 flex flex-wrap items-center gap-x-7 gap-y-3">
                             {unitStatusData.map((item) => (
-                                <div key={item.name} className="flex items-center gap-2">
-                                    <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                                    <span className="text-sm text-slate-600">{item.name}: {item.value}</span>
+                                <div key={item.name} className="inline-flex items-center gap-2.5">
+                                    <span
+                                        aria-hidden="true"
+                                        className="inline-block h-4 w-4 rounded-[3px] border-2 bg-transparent"
+                                        style={{ borderColor: item.color }}
+                                    />
+                                    <span className="text-[17px] font-semibold text-slate-800 leading-none">{item.name}</span>
                                 </div>
                             ))}
                         </div>

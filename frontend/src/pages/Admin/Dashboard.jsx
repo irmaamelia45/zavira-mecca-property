@@ -11,7 +11,7 @@ import {
     FaCheck,
 } from 'react-icons/fa';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend,
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
     PieChart, Pie, Cell
 } from 'recharts';
 import logoPt from '../../assets/logo_pt.png';
@@ -31,6 +31,25 @@ const PROPERTY_CATEGORY_SECTIONS = [
     { key: 'townhouse', label: 'Townhouse' },
     { key: 'lainnya', label: 'Lainnya' },
 ];
+
+function OutlineLegend({ items, className = '' }) {
+    return (
+        <div className={`flex flex-wrap items-center gap-2.5 ${className}`}>
+            {items.map((item) => (
+                <div
+                    key={item.name}
+                    className="inline-flex items-center gap-2"
+                >
+                    <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: item.color }}
+                    />
+                    <span className="text-[11px] font-medium text-slate-600">{item.name}</span>
+                </div>
+            ))}
+        </div>
+    );
+}
 
 export default function Dashboard() {
     const [loading, setLoading] = useState(true);
@@ -242,6 +261,11 @@ export default function Dashboard() {
         { name: 'Terbooking', value: selectedPropertyStatus.terbooking, color: '#ef4444' },
         { name: 'Proses Booking', value: selectedPropertyStatus.proses_booking, color: '#f59e0b' },
     ]), [selectedPropertyStatus]);
+    const salesLegendData = useMemo(() => ([
+        { name: 'Subsidi', color: '#35518b' },
+        { name: 'Komersil', color: '#10b981' },
+        { name: 'Townhouse', color: '#f59e0b' },
+    ]), []);
 
     const totalUnit = selectedPropertyStatus.total_unit || 0;
     const recentBookingsData = summary?.recent_bookings || [];
@@ -334,6 +358,7 @@ export default function Dashboard() {
                             <h2 className="text-xl font-bold text-[#0b1e45]">Data Penjualan</h2>
                             <p className="text-xs text-slate-500">Booking per kategori ({new Date().getFullYear()})</p>
                         </div>
+                        <OutlineLegend items={salesLegendData} className="justify-end" />
                     </div>
                     <div className="h-72 w-full">
                         {loading ? (
@@ -348,7 +373,6 @@ export default function Dashboard() {
                                         cursor={{ fill: '#f8f7f3' }}
                                         contentStyle={{ borderRadius: '0.75rem', border: '1px solid #e7dfd0', boxShadow: '0 10px 20px -12px rgba(15, 23, 42, 0.35)' }}
                                     />
-                                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', top: -40, right: 0 }} />
                                     <Bar dataKey="Subsidi" fill="#35518b" radius={[6, 6, 0, 0]} barSize={10} />
                                     <Bar dataKey="Komersil" fill="#10b981" radius={[6, 6, 0, 0]} barSize={10} />
                                     <Bar dataKey="Townhouse" fill="#f59e0b" radius={[6, 6, 0, 0]} barSize={10} />
@@ -464,14 +488,7 @@ export default function Dashboard() {
                             <span className="text-3xl font-bold text-[#0b1e45]">{totalUnit}</span>
                         </div>
                     </div>
-                    <div className="flex justify-center gap-6 mt-2">
-                        {propertyStatusData.map((item, idx) => (
-                            <div key={idx} className="flex items-center gap-2">
-                                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                                <span className="text-xs text-slate-600 font-medium">{item.name}</span>
-                            </div>
-                        ))}
-                    </div>
+                    <OutlineLegend items={propertyStatusData} className="mt-2 justify-center" />
                 </div>
             </div>
 
