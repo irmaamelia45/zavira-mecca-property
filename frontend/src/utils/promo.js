@@ -1,66 +1,4 @@
-const stripTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, '');
-const ensureLeadingSlash = (value = '') => (String(value || '').startsWith('/') ? String(value || '') : `/${String(value || '')}`);
-const parseApiMessage = async (response) => {
-    try {
-        const body = await response.clone().json();
-        return typeof body?.message === 'string' ? body.message.trim() : '';
-    } catch {
-        return '';
-    }
-};
-
-const isGenericNotFoundMessage = (message = '') => {
-    const normalized = String(message || '').trim().toLowerCase();
-    if (!normalized) return true;
-    if (normalized === 'not found' || normalized === 'not found.') return true;
-    if (normalized.startsWith('the route ') && normalized.includes(' could not be found')) return true;
-    return false;
-};
-
-const createRequestError = (message, stopFallback = false) => {
-    const error = new Error(message);
-    if (stopFallback) {
-        error.stopFallback = true;
-    }
-    return error;
-};
-
-export const getApiBaseCandidates = () => {
-    const envValue = String(import.meta.env.VITE_API_URL || '').trim();
-    const envBaseRaw = stripTrailingSlash(envValue);
-    const preferRelativeApi = envBaseRaw === '/api';
-    const envBase = envBaseRaw.toLowerCase().endsWith('/api')
-        ? stripTrailingSlash(envBaseRaw.slice(0, -4))
-        : envBaseRaw;
-    const defaultBase = 'http://127.0.0.1:8000';
-    const origin = typeof window !== 'undefined' ? stripTrailingSlash(window.location.origin) : '';
-    const originHostBase = (() => {
-        if (!origin) return '';
-        try {
-            const parsed = new URL(origin);
-            const isViteDevPort = parsed.port === '5173' || parsed.port === '5174' || parsed.port === '4173';
-            const withPort = parsed.port && !isViteDevPort ? `:${parsed.port}` : '';
-            return `${parsed.protocol}//${parsed.hostname}${withPort}`;
-        } catch {
-            return origin;
-        }
-    })();
-
-    const candidates = [
-        ...(preferRelativeApi ? [''] : [envBase]),
-        defaultBase,
-        originHostBase,
-        originHostBase ? `${originHostBase}/backend/public` : '',
-        originHostBase ? `${originHostBase}/sistem-pemasaran-perumahan/backend/public` : '',
-        originHostBase ? `${originHostBase}/zavira-mecca-property/sistem-pemasaran-perumahan/backend/public` : '',
-    ]
-        .filter((value) => value !== null && value !== undefined)
-        .filter((value, index, array) => array.indexOf(value) === index);
-    
-    return candidates;
-};
-
-export const API_BASE = getApiBaseCandidates()[0] ?? 'http://127.0.0.1:8000';
+import { resolveAssetUrl } from '../lib/api';
 
 export const normalizeApiListPayload = (payload) => {
     if (Array.isArray(payload)) return payload.filter((item) => item && typeof item === 'object');
@@ -87,55 +25,13 @@ export const normalizeApiItemPayload = (payload) => {
     return null;
 };
 
-export const fetchJsonWithFallback = async (path, options = {}) => {
-    const normalizedPath = ensureLeadingSlash(path);
-    const candidates = getApiBaseCandidates();
-    let lastError = null;
-
-    for (const base of candidates) {
-        const url = `${stripTrailingSlash(base)}${normalizedPath}`;
-        try {
-            const response = await fetch(url, options);
-            if (!response.ok) {
-                const apiMessage = await parseApiMessage(response);
-
-                // Try another base URL when endpoint is not found on current base.
-                if (response.status === 404) {
-                    // Stop fallback when backend returns a domain-specific 404 message
-                    // (for example: "Akun Admin Perumahan tidak ditemukan.").
-                    if (!isGenericNotFoundMessage(apiMessage)) {
-                        throw createRequestError(apiMessage, true);
-                    }
-
-                    lastError = createRequestError(`Endpoint tidak ditemukan di ${url}`);
-                    continue;
-                }
-
-                const fallbackMessage = `Gagal memuat data (${response.status}).`;
-                throw createRequestError(apiMessage || fallbackMessage, true);
-            }
-
-            return await response.json();
-        } catch (error) {
-            if (error?.stopFallback) {
-                throw error;
-            }
-            lastError = error;
-        }
-    }
-
-    throw lastError || new Error('Tidak dapat terhubung ke backend.');
-};
-
 export const resolveImage = (path) => {
     if (!path) return '';
     if (typeof path !== 'string') return '';
 
     const normalizedPath = path.trim();
     if (!normalizedPath) return '';
-    if (normalizedPath.startsWith('http')) return normalizedPath;
-
-    return `${API_BASE}${normalizedPath.startsWith('/') ? '' : '/'}${normalizedPath}`;
+    return resolveAssetUrl(normalizedPath);
 };
 
 export const formatMoney = (value) => new Intl.NumberFormat('id-ID', {

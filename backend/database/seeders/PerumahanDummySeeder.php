@@ -13,6 +13,10 @@ class PerumahanDummySeeder extends Seeder
      */
     public function run(): void
     {
+        if (! filter_var((string) env('ENABLE_DUMMY_SEEDERS', false), FILTER_VALIDATE_BOOLEAN)) {
+            return;
+        }
+
         $items = [
             [
                 'nama_perumahan' => 'Zavira Harmoni Residence',
@@ -22,6 +26,7 @@ class PerumahanDummySeeder extends Seeder
                 'gmaps_url' => 'https://maps.google.com/?q=Bandar+Lampung',
                 'deskripsi' => 'Hunian modern dekat pusat kota, cocok untuk keluarga muda.',
                 'harga' => 425000000,
+                'suku_bunga_kpr' => 7.25,
                 'tipe_unit' => '36/72',
                 'kategori' => 'subsidi',
                 'status_label' => 'Available',
@@ -50,6 +55,7 @@ class PerumahanDummySeeder extends Seeder
                 'gmaps_url' => 'https://maps.google.com/?q=Sukarame+Bandar+Lampung',
                 'deskripsi' => 'Lingkungan asri dengan akses cepat ke kampus dan pusat belanja.',
                 'harga' => 560000000,
+                'suku_bunga_kpr' => 8.10,
                 'tipe_unit' => '45/90',
                 'kategori' => 'komersil',
                 'status_label' => 'Available',
@@ -78,6 +84,7 @@ class PerumahanDummySeeder extends Seeder
                 'gmaps_url' => 'https://maps.google.com/?q=Rajabasa+Bandar+Lampung',
                 'deskripsi' => 'Townhouse premium dengan desain minimalis dan parkir luas.',
                 'harga' => 715000000,
+                'suku_bunga_kpr' => 8.75,
                 'tipe_unit' => '60/120',
                 'kategori' => 'townhouse',
                 'status_label' => 'Coming Soon',
@@ -106,6 +113,7 @@ class PerumahanDummySeeder extends Seeder
                 'gmaps_url' => 'https://maps.google.com/?q=Enggal+Bandar+Lampung',
                 'deskripsi' => 'Hunian vertikal modern dengan fasilitas lengkap dan akses transportasi.',
                 'harga' => 650000000,
+                'suku_bunga_kpr' => 8.40,
                 'tipe_unit' => 'Studio 30',
                 'kategori' => 'komersil',
                 'status_label' => 'Available',
@@ -142,7 +150,7 @@ class PerumahanDummySeeder extends Seeder
 
             $property->media()->delete();
 
-            foreach (array_slice($images, 0, 4) as $index => $image) {
+            foreach (array_slice($images, 0, 5) as $index => $image) {
                 PerumahanMedia::create([
                     'id_perumahan' => $property->id_perumahan,
                     'tipe' => 'foto',

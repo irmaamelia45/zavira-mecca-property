@@ -2,8 +2,8 @@
 
 namespace App\Services\Whatsapp;
 
+use App\Support\PhoneNumber;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
 
 class FonnteClient
 {
@@ -14,26 +14,7 @@ class FonnteClient
 
     public function normalizePhone(?string $phone): ?string
     {
-        if (! is_string($phone) || trim($phone) === '') {
-            return null;
-        }
-
-        $digits = preg_replace('/\D+/', '', $phone);
-        if (! $digits) {
-            return null;
-        }
-
-        if (Str::startsWith($digits, '0')) {
-            $digits = '62'.substr($digits, 1);
-        } elseif (Str::startsWith($digits, '8')) {
-            $digits = '62'.$digits;
-        }
-
-        if (! Str::startsWith($digits, '62') || strlen($digits) < 10) {
-            return null;
-        }
-
-        return $digits;
+        return PhoneNumber::normalizePhone($phone);
     }
 
     public function sendMessage(string $target, string $message): array

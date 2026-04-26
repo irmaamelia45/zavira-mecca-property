@@ -5,12 +5,15 @@ import Home from './pages/Home';
 import HousingList from './pages/HousingList';
 import HousingDetail from './pages/HousingDetail';
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
 import Booking from './pages/Booking';
 import PromoList from './pages/PromoList';
 import PromoDetail from './pages/PromoDetail';
 import KprInfo from './pages/KprInfo';
+import KprSimulation from './pages/KprSimulation';
 import CompanyProfile from './pages/CompanyProfile';
 import Register from './pages/Register';
+import ResetPassword from './pages/ResetPassword';
 import AccountHome from './pages/AccountHome';
 import AccountBooking from './pages/AccountBooking';
 import AccountBookingDetail from './pages/AccountBookingDetail';
@@ -30,6 +33,7 @@ import PropertyDetail from './pages/Admin/PropertyDetail';
 import TemplateSurat from './pages/Admin/TemplateSurat';
 import KprManagement from './pages/Admin/KprManagement';
 import CompanyProfileManagement from './pages/Admin/CompanyProfileManagement';
+import WhatsappLogManagement from './pages/Admin/WhatsappLogManagement';
 import AddPromo from './pages/Admin/AddPromo';
 import EditPromo from './pages/Admin/EditPromo';
 import PromoDetailAdmin from './pages/Admin/PromoDetail';
@@ -51,8 +55,11 @@ function App() {
         <Route path="promo" element={<PromoList />} />
         <Route path="promo/:id" element={<PromoDetail />} />
         <Route path="kpr" element={<KprInfo />} />
+        <Route path="kpr/simulasi" element={<KprSimulation />} />
         <Route path="profil" element={<CompanyProfile />} />
         <Route path="auth/login" element={<Login />} />
+        <Route path="auth/forgot-password" element={<ForgotPassword />} />
+        <Route path="auth/reset-password" element={<ResetPassword />} />
         <Route path="auth/register" element={<Register />} />
         <Route element={<ProtectedRoute allowRoles={['user', 'marketing']} />}>
           <Route path="akun" element={<AccountHome />} />
@@ -66,6 +73,7 @@ function App() {
         <Route path="properti" element={<HousingList />} />
         <Route path="properti/:id" element={<HousingDetail />} />
         <Route path="login" element={<Navigate to="/auth/login" replace />} />
+        <Route path="forgot-password" element={<Navigate to="/auth/forgot-password" replace />} />
         <Route path="register" element={<Navigate to="/auth/register" replace />} />
         <Route path="*" element={<NotFound />} />
       </Route>
@@ -85,6 +93,7 @@ function App() {
           <Route path="promos/edit/:id" element={<EditPromo />} />
           <Route path="bookings" element={<BookingManagement />} />
           <Route path="bookings/:id" element={<BookingDetail />} />
+          <Route path="whatsapp-logs" element={<WhatsappLogManagement />} />
           <Route path="templates" element={<TemplateSurat />} />
           <Route path="kpr" element={<KprManagement />} />
           <Route path="company-profile" element={<CompanyProfileManagement />} />

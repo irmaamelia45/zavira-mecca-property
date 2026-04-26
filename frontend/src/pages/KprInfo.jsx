@@ -12,7 +12,7 @@ import {
 } from 'react-icons/fi';
 import Button from '../components/ui/Button';
 import bgPage from '../assets/bg_page.jpg';
-import { fetchJsonWithFallback } from '../utils/promo';
+import { apiJson } from '../lib/api';
 
 const infoCards = [
     {
@@ -124,7 +124,7 @@ export default function KprInfo() {
     useEffect(() => {
         const fetchKprContent = async () => {
             try {
-                const data = await fetchJsonWithFallback('/api/kpr-contents');
+                const data = await apiJson('/kpr-contents');
                 setRemoteItems(data || []);
             } catch (err) {
                 setRemoteError(err.message || 'Gagal memuat konten KPR.');
@@ -185,7 +185,7 @@ export default function KprInfo() {
                         </p>
 
                         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto animate-in slide-in-from-bottom-8 duration-700 delay-300">
-                            <Link to="/perumahan" className="w-full sm:w-auto">
+                            <Link to="/kpr/simulasi" className="w-full sm:w-auto">
                                 <Button size="lg" className="w-full sm:w-auto px-6 py-2.5 md:py-3 text-sm md:text-base font-semibold shadow-xl shadow-black/30 transform hover:-translate-y-1 hover:shadow-2xl hover:bg-primary-600 transition-all duration-300">
                                     Mulai Simulasi
                                 </Button>
@@ -284,14 +284,17 @@ export default function KprInfo() {
                     <div className="space-y-4">
                         <p className="text-xs uppercase tracking-[0.28em] text-secondary-700">Simulasi KPR</p>
                         <h2 className="text-3xl md:text-4xl font-serif font-semibold">
-                            Mulai simulasi dan pilih perumahan yang tepat.
+                            Mulai simulasi langsung dari kalkulator KPR.
                         </h2>
                         <p className="text-sm text-secondary-800 leading-relaxed">
-                            Simulasi KPR akan tampil lebih akurat jika Anda sudah memilih perumahan dan tipe unit.
+                            Masukkan harga rumah, DP, tenor, dan suku bunga untuk melihat estimasi cicilan bulanan.
                         </p>
                         <div className="flex flex-wrap gap-3">
+                            <Link to="/kpr/simulasi">
+                                <Button size="md">Hitung Simulasi</Button>
+                            </Link>
                             <Link to="/perumahan">
-                                <Button size="md">Pilih Perumahan</Button>
+                                <Button size="md" variant="outline">Pilih Perumahan</Button>
                             </Link>
                             <a
                                 href="#detail"

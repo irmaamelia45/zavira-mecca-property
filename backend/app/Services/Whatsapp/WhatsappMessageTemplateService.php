@@ -18,9 +18,24 @@ class WhatsappMessageTemplateService
         return $this->render('user_booking_created', $this->bookingContext($booking));
     }
 
+    public function buildMarketingBookingCreatedMessage(Booking $booking): string
+    {
+        return $this->render('marketing_booking_masuk', $this->bookingContext($booking));
+    }
+
     public function buildUserBookingStatusChangedMessage(Booking $booking): string
     {
         $statusKey = $this->statusToTemplateKey((string) $booking->status_booking);
+
+        return $this->render($statusKey, $this->bookingContext($booking));
+    }
+
+    public function buildMarketingBookingStatusChangedMessage(Booking $booking): ?string
+    {
+        $statusKey = $this->statusToMarketingTemplateKey((string) $booking->status_booking);
+        if ($statusKey === null) {
+            return null;
+        }
 
         return $this->render($statusKey, $this->bookingContext($booking));
     }
@@ -63,6 +78,7 @@ class WhatsappMessageTemplateService
         return [
             'nama_user' => (string) ($booking->user?->nama ?? 'Pelanggan'),
             'no_user' => (string) ($booking->user?->no_hp ?? '-'),
+            'no_hp_user' => (string) ($booking->user?->no_hp ?? '-'),
             'nama_perumahan' => (string) ($booking->perumahan?->nama_perumahan ?? '-'),
             'nama_unit' => $unitLabel,
             'tanggal_booking' => optional($booking->tanggal_booking)->format('d-m-Y H:i') ?? '-',
@@ -109,6 +125,17 @@ class WhatsappMessageTemplateService
             'Selesai' => 'user_status_selesai',
             'Dibatalkan' => 'user_status_dibatalkan',
             default => 'user_status_default',
+        };
+    }
+
+    private function statusToMarketingTemplateKey(string $status): ?string
+    {
+        return match ($status) {
+            'Disetujui' => 'marketing_status_disetujui',
+            'Ditolak' => 'marketing_status_ditolak',
+            'Selesai' => 'marketing_status_selesai',
+            'Dibatalkan' => 'marketing_status_dibatalkan',
+            default => null,
         };
     }
 }

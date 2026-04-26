@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
-import { API_BASE } from '../../utils/promo';
+import { apiJson } from '../../lib/api';
 import { authHeaders, getStoredUser, getUserRole, saveAuth } from '../../lib/auth';
-import { normalizePhone62 } from '../../lib/phone';
+import { formatPhoneForDisplay, normalizePhone } from '../../lib/phone';
 
 const initialProfile = {
     nama: '',
@@ -39,7 +39,7 @@ export default function AdminProfile() {
             setProfile({
                 nama: localUser.nama || '',
                 email: localUser.email || '',
-                no_hp: normalizePhone62(localUser.no_hp || ''),
+                no_hp: formatPhoneForDisplay(localUser.no_hp || ''),
                 alamat: localUser.alamat || '',
             });
         }
@@ -48,19 +48,16 @@ export default function AdminProfile() {
             setLoading(true);
             setError('');
             try {
-                const response = await fetch(`${API_BASE}/api/auth/me`, {
+                const data = await apiJson('/auth/me', {
                     headers: authHeaders(),
+                    defaultErrorMessage: 'Gagal memuat profil akun.',
                 });
-                const data = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    throw new Error(data?.message || 'Gagal memuat profil akun.');
-                }
 
                 if (data?.user) {
                     setProfile({
                         nama: data.user.nama || '',
                         email: data.user.email || '',
-                        no_hp: normalizePhone62(data.user.no_hp || ''),
+                        no_hp: formatPhoneForDisplay(data.user.no_hp || ''),
                         alamat: data.user.alamat || '',
                     });
                     saveAuth({ token: undefined, user: data.user });
@@ -86,27 +83,24 @@ export default function AdminProfile() {
                 throw new Error('Email harus menggunakan domain @gmail.com.');
             }
 
-            const response = await fetch(`${API_BASE}/api/auth/profile`, {
+            const data = await apiJson('/auth/profile', {
                 method: 'PUT',
                 headers: authHeaders({
                     'Content-Type': 'application/json',
                 }),
                 body: JSON.stringify({
                     ...profile,
-                    no_hp: normalizePhone62(profile.no_hp),
+                    no_hp: normalizePhone(profile.no_hp),
                 }),
+                defaultErrorMessage: 'Gagal memperbarui profil akun.',
             });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(data?.message || 'Gagal memperbarui profil akun.');
-            }
 
             if (data?.user) {
                 saveAuth({ token: undefined, user: data.user });
                 setProfile({
                     nama: data.user.nama || '',
                     email: data.user.email || '',
-                    no_hp: normalizePhone62(data.user.no_hp || ''),
+                    no_hp: formatPhoneForDisplay(data.user.no_hp || ''),
                     alamat: data.user.alamat || '',
                 });
             }
@@ -126,17 +120,14 @@ export default function AdminProfile() {
         setSuccess('');
 
         try {
-            const response = await fetch(`${API_BASE}/api/auth/password`, {
+            const data = await apiJson('/auth/password', {
                 method: 'PUT',
                 headers: authHeaders({
                     'Content-Type': 'application/json',
                 }),
                 body: JSON.stringify(passwordForm),
+                defaultErrorMessage: 'Gagal mengubah password akun.',
             });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(data?.message || 'Gagal mengubah password akun.');
-            }
 
             setPasswordForm(initialPasswordForm);
             setSuccess(data?.message || 'Password akun berhasil diubah.');
@@ -193,8 +184,8 @@ export default function AdminProfile() {
                             <Input
                                 label="No. HP"
                                 value={profile.no_hp}
-                                onChange={(event) => setProfile((prev) => ({ ...prev, no_hp: normalizePhone62(event.target.value) }))}
-                                placeholder="628xxxxxxxxxx"
+                                onChange={(event) => setProfile((prev) => ({ ...prev, no_hp: formatPhoneForDisplay(normalizePhone(event.target.value)) }))}
+                                placeholder="08xxxxxxxxxx"
                                 required
                                 disabled={loading}
                             />

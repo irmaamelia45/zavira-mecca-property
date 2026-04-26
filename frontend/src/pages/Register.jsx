@@ -3,9 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { API_BASE } from '../utils/promo';
+import { apiJson, ApiRequestError } from '../lib/api';
 import { saveAuth } from '../lib/auth';
-import { isValidPhone62, normalizePhone62 } from '../lib/phone';
+import { formatPhoneForDisplay, isValidPhone, normalizePhone } from '../lib/phone';
 
 export default function Register() {
     const navigate = useNavigate();
@@ -48,7 +48,7 @@ export default function Register() {
         const nextErrors = {};
         const trimmedName = name.trim();
         const trimmedEmail = email.trim();
-        const trimmedPhone = normalizePhone62(phone.trim());
+        const trimmedPhone = normalizePhone(phone.trim());
 
         if (!trimmedName) {
             nextErrors.nama = 'Nama lengkap wajib diisi.';
@@ -62,8 +62,8 @@ export default function Register() {
 
         if (!trimmedPhone) {
             nextErrors.no_hp = 'Nomor WhatsApp wajib diisi.';
-        } else if (!isValidPhone62(trimmedPhone)) {
-            nextErrors.no_hp = 'Format nomor WhatsApp harus 62xxxx.';
+        } else if (!isValidPhone(trimmedPhone)) {
+            nextErrors.no_hp = 'Format nomor WhatsApp tidak valid. Gunakan 08xxxxxxxxxx.';
         }
 
         if (!password) {
@@ -105,7 +105,7 @@ export default function Register() {
         }
 
         try {
-            const response = await fetch(`${API_BASE}/api/auth/register`, {
+            const data = await apiJson('/auth/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -113,16 +113,22 @@ export default function Register() {
                 body: JSON.stringify({
                     nama: name.trim(),
                     email: email.trim(),
-                    no_hp: normalizePhone62(phone.trim()),
+                    no_hp: normalizePhone(phone.trim()),
                     password,
                     password_confirmation: confirmPassword,
                     device_name: 'web',
                 }),
+                defaultErrorMessage: 'Registrasi gagal.',
             });
 
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                const parsedErrors = Object.entries(data?.errors || {}).reduce((acc, [key, value]) => {
+            saveAuth({
+                token: data.token,
+                user: data.user,
+            });
+            navigate('/akun');
+        } catch (err) {
+            if (err instanceof ApiRequestError && err?.data?.errors) {
+                const parsedErrors = Object.entries(err.data.errors).reduce((acc, [key, value]) => {
                     const message = pickFirstError(value);
                     if (message) acc[key] = message;
                     return acc;
@@ -131,19 +137,10 @@ export default function Register() {
                 if (Object.keys(parsedErrors).length > 0) {
                     setFieldErrors(parsedErrors);
                     setError('Periksa kembali form yang ditandai.');
-                } else {
-                    setError(data?.message || 'Registrasi gagal.');
+                    return;
                 }
-
-                return;
             }
 
-            saveAuth({
-                token: data.token,
-                user: data.user,
-            });
-            navigate('/akun');
-        } catch (err) {
             const message = String(err?.message || '');
             if (message.toLowerCase().includes('failed to fetch')) {
                 setError('Tidak dapat terhubung ke server. Coba lagi beberapa saat.');
@@ -194,10 +191,10 @@ export default function Register() {
                         />
                         <Input
                             label="No. WhatsApp"
-                            placeholder="628xxxxxxxxxx"
+                            placeholder="08xxxxxxxxxx"
                             value={phone}
                             onChange={(e) => {
-                                setPhone(normalizePhone62(e.target.value));
+                                setPhone(formatPhoneForDisplay(normalizePhone(e.target.value)));
                                 clearFieldError('no_hp');
                             }}
                             error={fieldErrors.no_hp}

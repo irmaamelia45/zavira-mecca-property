@@ -6,12 +6,12 @@ import { Card, CardContent } from '../components/ui/Card';
 import { FaClipboardList, FaTrash } from 'react-icons/fa';
 import { FiActivity, FiArrowUpRight, FiCalendar, FiCheckCircle, FiClock, FiFlag, FiHash, FiHome, FiMapPin, FiXCircle } from 'react-icons/fi';
 import {
-    API_BASE,
     getPromoPricing as calculatePromoPricing,
     mapPromoFromApi,
     normalizeApiListPayload,
     resolveImage,
 } from '../utils/promo';
+import { apiJson } from '../lib/api';
 import { authHeaders, getStoredUser, saveAuth } from '../lib/auth';
 import { getFavoriteIds, removeFavoriteProperty } from '../lib/favorites';
 
@@ -41,7 +41,7 @@ const getCategoryBadgeClass = (category) => {
 const getStatusBadgeClass = (status) => {
     const key = String(status || '').toLowerCase();
     if (key.includes('coming')) return 'bg-amber-50/95 text-amber-700 border-amber-200';
-    if (key.includes('sold')) return 'bg-rose-50/95 text-rose-700 border-rose-200';
+    if (key.includes('sold') || key.includes('terjual')) return 'bg-rose-50/95 text-rose-700 border-rose-200';
     return 'bg-emerald-50/95 text-emerald-700 border-emerald-200';
 };
 
@@ -132,11 +132,10 @@ export default function AccountDashboard() {
 
         const fetchUser = async () => {
             try {
-                const response = await fetch(`${API_BASE}/api/auth/me`, {
+                const data = await apiJson('/auth/me', {
                     headers: authHeaders(),
+                    defaultErrorMessage: 'Gagal memuat data profil.',
                 });
-                if (!response.ok) throw new Error('Gagal memuat data profil.');
-                const data = await response.json();
                 if (data?.user) {
                     const nextUser = {
                         nama: data.user.nama || '',
@@ -155,11 +154,10 @@ export default function AccountDashboard() {
         const fetchBookings = async () => {
             setLoadingBookings(true);
             try {
-                const response = await fetch(`${API_BASE}/api/bookings/me`, {
+                const data = await apiJson('/bookings/me', {
                     headers: authHeaders(),
+                    defaultErrorMessage: 'Gagal memuat riwayat booking.',
                 });
-                if (!response.ok) throw new Error('Gagal memuat riwayat booking.');
-                const data = await response.json();
                 setBookings(data || []);
             } catch (err) {
                 setError((prev) => prev || err.message || 'Gagal memuat riwayat booking.');
@@ -176,9 +174,9 @@ export default function AccountDashboard() {
                     setFavorites([]);
                     return;
                 }
-                const response = await fetch(`${API_BASE}/api/perumahan`);
-                if (!response.ok) throw new Error('Gagal memuat daftar favorit.');
-                const data = await response.json();
+                const data = await apiJson('/perumahan', {
+                    defaultErrorMessage: 'Gagal memuat daftar favorit.',
+                });
                 const normalizedProperties = normalizeApiListPayload(data);
                 const byId = new Map(normalizedProperties.map((item) => [Number(item.id), item]));
                 setFavorites(ids.map((id) => byId.get(id)).filter(Boolean));
@@ -191,12 +189,7 @@ export default function AccountDashboard() {
 
         const fetchPromos = async () => {
             try {
-                const response = await fetch(`${API_BASE}/api/promos`);
-                if (!response.ok) {
-                    setPromos([]);
-                    return;
-                }
-                const data = await response.json();
+                const data = await apiJson('/promos');
                 setPromos(normalizeApiListPayload(data).map(mapPromoFromApi));
             } catch {
                 setPromos([]);
@@ -426,7 +419,7 @@ export default function AccountDashboard() {
                                 const promoPricing = getPromoPricing(item.id, basePrice);
                                 const finalPrice = Math.max(0, basePrice - promoPricing.discount);
                                 const mainImage = item.image ? resolveImage(item.image) : '';
-                                const statusLabel = String(item.status || 'Available');
+                                const statusLabel = String(item.status || 'Tersedia');
                                 const availableUnits = Number(item.availableUnits) || 0;
 
                                 return (

@@ -21,6 +21,8 @@ class Booking extends Model
         'tanggal_booking',
         'status_booking',
         'catatan_user',
+        'no_rekening',
+        'range_harga_dp',
         'pekerjaan',
         'jenis_pekerjaan',
         'gaji_bulanan',

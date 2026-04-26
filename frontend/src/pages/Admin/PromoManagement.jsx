@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { Card, CardContent } from '../../components/ui/Card';
+import TableSlidePagination from '../../components/admin/TableSlidePagination';
 import { FaPlus, FaSearch, FaSlidersH, FaTags, FaCheckCircle, FaPercent, FaMoneyBillWave, FaChevronDown, FaChevronUp, FaCheck } from 'react-icons/fa';
-import { API_BASE, formatPromoPeriod, formatMoney } from '../../utils/promo';
+import { apiJson } from '../../lib/api';
+import { formatPromoPeriod, formatMoney, normalizeApiListPayload } from '../../utils/promo';
 import { authHeaders } from '../../lib/auth';
+import useTableSlidePagination from '../../hooks/useTableSlidePagination';
 
 const PROMO_TYPE_FILTERS = [
     { key: 'all', label: 'Semua Tipe' },
@@ -58,15 +61,11 @@ export default function PromoManagement() {
         setIsLoading(true);
         setError('');
         try {
-            const response = await fetch(`${API_BASE}/api/promos`, {
+            const data = await apiJson('/promos', {
                 headers: authHeaders(),
+                defaultErrorMessage: 'Gagal memuat data promo.',
             });
-            if (!response.ok) {
-                throw new Error('Gagal memuat data promo.');
-            }
-
-            const data = await response.json();
-            const mapped = (data || []).map((promo) => {
+            const mapped = normalizeApiListPayload(data).map((promo) => {
                 const typeKey = normalizePromoType(promo.tipe_promo);
                 const value = Number(promo.nilai_promo || 0);
 
@@ -153,6 +152,21 @@ export default function PromoManagement() {
             return new Date(b.startDate || 0).getTime() - new Date(a.startDate || 0).getTime();
         });
     }, [promos, search, promoTypeFilter, statusFilter, sortBy]);
+
+    const {
+        currentPage,
+        totalPages,
+        paginatedRows: paginatedPromos,
+        rangeStart,
+        rangeEnd,
+        canPrevious,
+        canNext,
+        goPrevious,
+        goNext,
+    } = useTableSlidePagination(filteredPromos, {
+        rowsPerPage: 10,
+        resetDeps: [search, promoTypeFilter, statusFilter, sortBy],
+    });
 
     const summary = useMemo(() => {
         const total = promos.length;
@@ -387,7 +401,7 @@ export default function PromoManagement() {
                                         <td className="px-6 py-8 text-gray-500" colSpan="6">Data promo tidak ditemukan. Coba ubah kata kunci atau filter.</td>
                                     </tr>
                                 ) : (
-                                    filteredPromos.map((promo) => (
+                                    paginatedPromos.map((promo) => (
                                         <tr key={promo.id} className="hover:bg-slate-50/70 transition-colors">
                                             <td className="px-6 py-4">
                                                 <div>
@@ -432,6 +446,22 @@ export default function PromoManagement() {
                             </tbody>
                         </table>
                     </div>
+                    {!isLoading && (
+                        <div className="border-t border-slate-100 p-4">
+                            <TableSlidePagination
+                                rangeStart={rangeStart}
+                                rangeEnd={rangeEnd}
+                                totalItems={filteredPromos.length}
+                                totalPages={totalPages}
+                                currentPage={currentPage}
+                                itemLabel="promo"
+                                canPrevious={canPrevious}
+                                canNext={canNext}
+                                onPrevious={goPrevious}
+                                onNext={goNext}
+                            />
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>

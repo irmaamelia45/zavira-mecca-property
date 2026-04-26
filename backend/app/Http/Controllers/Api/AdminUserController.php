@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\PhoneNumber;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Password;
 
@@ -53,7 +54,7 @@ class AdminUserController extends Controller
         }
 
         $request->merge([
-            'no_hp' => $this->normalizePhone62((string) $request->input('no_hp')),
+            'no_hp' => $this->normalizePhoneForValidation($request->input('no_hp')),
         ]);
 
         $validated = $request->validate([
@@ -64,7 +65,8 @@ class AdminUserController extends Controller
             'alamat' => 'nullable|string|max:255',
             'is_active' => 'nullable|boolean',
         ], [
-            'no_hp.regex' => 'Nomor HP harus menggunakan format 62xxxx.',
+            'no_hp.required' => 'Nomor HP wajib diisi.',
+            'no_hp.regex' => 'Nomor HP tidak valid. Gunakan format 08xxxxxxxxxx.',
         ]);
 
         $marketingRole = Role::query()->firstOrCreate(
@@ -95,7 +97,7 @@ class AdminUserController extends Controller
         }
 
         $request->merge([
-            'no_hp' => $this->normalizePhone62((string) $request->input('no_hp')),
+            'no_hp' => $this->normalizePhoneForValidation($request->input('no_hp')),
         ]);
 
         $validated = $request->validate([
@@ -106,7 +108,8 @@ class AdminUserController extends Controller
             'alamat' => 'nullable|string|max:255',
             'is_active' => 'nullable|boolean',
         ], [
-            'no_hp.regex' => 'Nomor HP harus menggunakan format 62xxxx.',
+            'no_hp.required' => 'Nomor HP wajib diisi.',
+            'no_hp.regex' => 'Nomor HP tidak valid. Gunakan format 08xxxxxxxxxx.',
         ]);
 
         $adminRole = Role::query()->firstOrCreate(
@@ -165,6 +168,54 @@ class AdminUserController extends Controller
         $user->delete();
 
         return response()->json(['message' => 'Akun marketing berhasil dihapus.']);
+    }
+
+    public function updateMarketingStatus(Request $request, $id)
+    {
+        if (! $this->hasAllowedRole($request, ['admin', 'superadmin'])) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $validated = $request->validate([
+            'is_active' => 'required|boolean',
+        ]);
+
+        $user = User::query()
+            ->with('role:id_role,nama_role')
+            ->find($id);
+
+        if (! $user || ($user->role?->nama_role !== 'marketing')) {
+            return response()->json(['message' => 'Akun marketing tidak ditemukan.'], 404);
+        }
+
+        if ((int) $user->id_user === (int) $request->user()?->id_user) {
+            return response()->json([
+                'message' => 'Anda tidak dapat mengubah status akun Anda sendiri.',
+            ], 422);
+        }
+
+        $nextStatus = (bool) $validated['is_active'];
+        $currentStatus = (bool) $user->is_active;
+
+        if ($nextStatus !== $currentStatus) {
+            $user->update([
+                'is_active' => $nextStatus,
+            ]);
+
+            if (! $nextStatus) {
+                $user->tokens()->delete();
+            }
+        }
+
+        $freshUser = $user->fresh('role:id_role,nama_role');
+        $message = $nextStatus
+            ? 'Akun marketing berhasil diaktifkan.'
+            : 'Akun marketing berhasil dinonaktifkan.';
+
+        return response()->json([
+            'message' => $message,
+            'user' => $this->formatUser($freshUser),
+        ]);
     }
 
     public function destroyAdmin(Request $request, $id)
@@ -273,29 +324,15 @@ class AdminUserController extends Controller
         return in_array($role, array_map('strtolower', $allowedRoles), true);
     }
 
-    private function normalizePhone62(string $phone): string
+    private function normalizePhoneForValidation(mixed $input): string
     {
-        $digits = preg_replace('/\D+/', '', $phone) ?? '';
-        if ($digits === '') {
-            return '';
+        $raw = is_string($input) ? $input : '';
+        $normalized = PhoneNumber::normalizePhone($raw);
+
+        if ($normalized) {
+            return $normalized;
         }
 
-        $digits = preg_replace('/^00+/', '', $digits) ?? $digits;
-
-        if (str_starts_with($digits, '62')) {
-            $localPart = preg_replace('/^0+/', '', substr($digits, 2)) ?? substr($digits, 2);
-            return '62'.$localPart;
-        }
-
-        if (str_starts_with($digits, '0')) {
-            $localPart = preg_replace('/^0+/', '', $digits) ?? $digits;
-            return '62'.$localPart;
-        }
-
-        if (str_starts_with($digits, '8')) {
-            return '62'.$digits;
-        }
-
-        return '62'.preg_replace('/^62/', '', $digits);
+        return PhoneNumber::digitsOnly($raw);
     }
 }

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { FaHome, FaBuilding, FaTags, FaClipboardList, FaSignOutAlt, FaBars, FaTimes, FaSearch, FaHandHoldingUsd, FaUserTie, FaUserShield, FaChevronUp, FaLock } from 'react-icons/fa';
+import { FaHome, FaBuilding, FaTags, FaClipboardList, FaSignOutAlt, FaBars, FaTimes, FaSearch, FaHandHoldingUsd, FaUserTie, FaUserShield, FaChevronUp, FaLock, FaWhatsapp } from 'react-icons/fa';
 import { FiUser } from 'react-icons/fi';
 import { cn } from '../../lib/utils';
 import logoPt from '../../assets/logo_pt.png';
-import { API_BASE } from '../../utils/promo';
+import { apiFetch } from '../../lib/api';
 import { authHeaders, clearAuth, getStoredUser, getUserRole, isLoggedIn } from '../../lib/auth';
 
 const MENU_SECTIONS = [
@@ -20,6 +20,7 @@ const MENU_SECTIONS = [
             { name: 'Perumahan', path: '/admin/properties', icon: <FaBuilding /> },
             { name: 'Promo', path: '/admin/promos', icon: <FaTags /> },
             { name: 'Booking', path: '/admin/bookings', icon: <FaClipboardList /> },
+            { name: 'Riwayat WA', path: '/admin/whatsapp-logs', icon: <FaWhatsapp /> },
         ],
     },
     {
@@ -74,7 +75,7 @@ export default function AdminLayout() {
 
     const handleLogout = async () => {
         try {
-            await fetch(`${API_BASE}/api/auth/logout`, {
+            await apiFetch('/auth/logout', {
                 method: 'POST',
                 headers: authHeaders(),
             });

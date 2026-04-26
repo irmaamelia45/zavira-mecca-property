@@ -4,6 +4,7 @@ import {
     FaUserTie,
     FaMoneyBillWave,
     FaBookmark,
+    FaUsers,
     FaEllipsisV,
     FaSlidersH,
     FaChevronDown,
@@ -14,15 +15,25 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
     PieChart, Pie, Cell
 } from 'recharts';
+import TableSlidePagination from '../../components/admin/TableSlidePagination';
 import logoPt from '../../assets/logo_pt.png';
-import { API_BASE } from '../../utils/promo';
+import { apiJson, ApiRequestError } from '../../lib/api';
 import { authHeaders, getStoredUser } from '../../lib/auth';
+import useTableSlidePagination from '../../hooks/useTableSlidePagination';
 
 const DEFAULT_CARDS = Object.freeze({
     subsidi: 0,
     komersil: 0,
     townhouse: 0,
     total_booking: 0,
+    total_user: 0,
+});
+
+const DEFAULT_USER_SUMMARY = Object.freeze({
+    total_registered: 0,
+    total_active: 0,
+    total_inactive: 0,
+    roles: [],
 });
 
 const PROPERTY_CATEGORY_SECTIONS = [
@@ -89,40 +100,37 @@ export default function Dashboard() {
             setLoading(true);
             setError('');
             try {
-                const response = await fetch(`${API_BASE}/api/admin/dashboard/summary`, {
+                const data = await apiJson('/admin/dashboard/summary', {
                     headers: authHeaders(),
+                    defaultErrorMessage: 'Gagal memuat data dashboard.',
                 });
-                if (!response.ok) {
-                    throw new Error('Gagal memuat data dashboard.');
-                }
-                const data = await response.json();
 
                 let propertyCountByCategory = null;
                 let propertyCategoryLookup = null;
                 try {
-                    const propertyResponse = await fetch(`${API_BASE}/api/admin/perumahan`, {
+                    const properties = await apiJson('/admin/perumahan', {
                         headers: authHeaders(),
                     });
 
-                    if (propertyResponse.ok) {
-                        const properties = await propertyResponse.json();
-                        const counts = { subsidi: 0, komersil: 0, townhouse: 0 };
-                        const categoryLookup = {};
+                    const counts = { subsidi: 0, komersil: 0, townhouse: 0 };
+                    const categoryLookup = {};
 
-                        (properties || []).forEach((property) => {
-                            const key = String(property?.category || '').toLowerCase();
-                            if (property?.id !== undefined && property?.id !== null) {
-                                categoryLookup[String(property.id)] = key;
-                            }
-                            if (Object.prototype.hasOwnProperty.call(counts, key)) {
-                                counts[key] += 1;
-                            }
-                        });
+                    (properties || []).forEach((property) => {
+                        const key = String(property?.category || '').toLowerCase();
+                        if (property?.id !== undefined && property?.id !== null) {
+                            categoryLookup[String(property.id)] = key;
+                        }
+                        if (Object.prototype.hasOwnProperty.call(counts, key)) {
+                            counts[key] += 1;
+                        }
+                    });
 
-                        propertyCountByCategory = counts;
-                        propertyCategoryLookup = categoryLookup;
+                    propertyCountByCategory = counts;
+                    propertyCategoryLookup = categoryLookup;
+                } catch (propertyError) {
+                    if (!(propertyError instanceof ApiRequestError)) {
+                        throw propertyError;
                     }
-                } catch {
                     // Keep fallback to summary cards when perumahan list fails to load.
                 }
 
@@ -146,6 +154,9 @@ export default function Dashboard() {
     }, []);
 
     const salesData = summary?.sales_data || [];
+    const userGrowthData = summary?.user_growth_data || [];
+    const userSummary = summary?.user_summary || DEFAULT_USER_SUMMARY;
+    const recentUsers = summary?.recent_users || [];
     const cards = useMemo(() => summary?.cards || DEFAULT_CARDS, [summary?.cards]);
 
     const statCards = useMemo(() => ([
@@ -180,6 +191,14 @@ export default function Dashboard() {
             desc: 'Seluruh booking terdaftar',
             Icon: FaBookmark,
             toneClass: 'tone-indigo',
+        },
+        {
+            key: 'total_user',
+            label: 'Total User Terdaftar',
+            value: cards.total_user,
+            desc: 'Seluruh akun pada sistem',
+            Icon: FaUsers,
+            toneClass: 'tone-emerald',
         },
     ]), [cards]);
 
@@ -226,8 +245,8 @@ export default function Dashboard() {
     const selectedPropertyStatus = useMemo(() => {
         const fallback = {
             tersedia: Number(summary?.property_status?.tersedia) || 0,
-            terbooking: Number(summary?.property_status?.terbooking ?? summary?.property_status?.terjual) || 0,
-            proses_booking: Number(summary?.property_status?.proses_booking) || 0,
+            terbooking: Number(summary?.property_status?.terbooking ?? summary?.property_status?.proses_booking) || 0,
+            terjual: Number(summary?.property_status?.terjual) || 0,
             total_unit: Number(summary?.property_status?.total_unit) || 0,
         };
 
@@ -243,23 +262,23 @@ export default function Dashboard() {
             return {
                 tersedia: 0,
                 terbooking: 0,
-                proses_booking: 0,
+                terjual: 0,
                 total_unit: 0,
             };
         }
 
         return {
             tersedia: Number(selectedItem?.tersedia) || 0,
-            terbooking: Number(selectedItem?.terbooking ?? selectedItem?.terjual) || 0,
-            proses_booking: Number(selectedItem?.proses_booking) || 0,
+            terbooking: Number(selectedItem?.terbooking ?? selectedItem?.proses_booking) || 0,
+            terjual: Number(selectedItem?.terjual) || 0,
             total_unit: Number(selectedItem?.total_unit) || 0,
         };
     }, [summary, selectedPropertyFilter]);
 
     const propertyStatusData = useMemo(() => ([
         { name: 'Tersedia', value: selectedPropertyStatus.tersedia, color: '#10b981' },
-        { name: 'Terbooking', value: selectedPropertyStatus.terbooking, color: '#ef4444' },
-        { name: 'Proses Booking', value: selectedPropertyStatus.proses_booking, color: '#f59e0b' },
+        { name: 'Terbooking', value: selectedPropertyStatus.terbooking, color: '#f59e0b' },
+        { name: 'Terjual', value: selectedPropertyStatus.terjual, color: '#ef4444' },
     ]), [selectedPropertyStatus]);
     const salesLegendData = useMemo(() => ([
         { name: 'Subsidi', color: '#35518b' },
@@ -269,7 +288,27 @@ export default function Dashboard() {
 
     const totalUnit = selectedPropertyStatus.total_unit || 0;
     const recentBookingsData = summary?.recent_bookings || [];
+    const {
+        currentPage: recentBookingsPage,
+        totalPages: recentBookingsTotalPages,
+        paginatedRows: paginatedRecentBookings,
+        rangeStart: recentBookingsRangeStart,
+        rangeEnd: recentBookingsRangeEnd,
+        canPrevious: canPreviousRecentBookings,
+        canNext: canNextRecentBookings,
+        goPrevious: goPreviousRecentBookings,
+        goNext: goNextRecentBookings,
+    } = useTableSlidePagination(recentBookingsData, {
+        rowsPerPage: 5,
+        resetDeps: [recentBookingsData.length],
+    });
     const recentActivities = summary?.recent_activities || [];
+    const userRoleData = useMemo(() => (
+        (userSummary.roles || []).filter((item) => (item?.total || 0) > 0 || item?.key !== 'lainnya')
+    ), [userSummary.roles]);
+    const totalRegisteredUsers = Number(userSummary.total_registered) || 0;
+    const totalActiveUsers = Number(userSummary.total_active) || 0;
+    const totalInactiveUsers = Number(userSummary.total_inactive) || 0;
 
     const formatDate = (value) => {
         if (!value) return '-';
@@ -306,6 +345,20 @@ export default function Dashboard() {
         return <FaHome size={15} />;
     };
 
+    const roleBadgeClass = (roleKey) => {
+        if (roleKey === 'superadmin') return 'border-violet-200 bg-violet-50 text-violet-700';
+        if (roleKey === 'admin') return 'border-sky-200 bg-sky-50 text-sky-700';
+        if (roleKey === 'marketing') return 'border-amber-200 bg-amber-50 text-amber-700';
+        if (roleKey === 'user') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+        return 'border-slate-200 bg-slate-100 text-slate-700';
+    };
+
+    const userStatusClass = (isActive) => (
+        isActive
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+            : 'border-slate-200 bg-slate-100 text-slate-600'
+    );
+
     return (
         <div className="admin-page space-y-6 animate-in fade-in duration-500">
             <div>
@@ -332,7 +385,7 @@ export default function Dashboard() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
                 {statCards.map((item) => (
                     <article key={item.key} className={`admin-stat-card ${item.toneClass}`}>
                         <div className="admin-stat-head">
@@ -349,6 +402,94 @@ export default function Dashboard() {
                         </div>
                     </article>
                 ))}
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                <div className="rounded-2xl border border-[#e7dfd0] bg-white p-5 xl:col-span-2 shadow-sm">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
+                        <div>
+                            <h2 className="text-xl font-bold text-[#0b1e45]">Laporan Pengguna</h2>
+                            <p className="text-xs text-slate-500">Pertumbuhan pendaftaran akun pada {new Date().getFullYear()}</p>
+                        </div>
+                        <div className="inline-flex items-center gap-2 rounded-full border border-[#dbe8dc] bg-[#f6fbf7] px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                            <FaUsers className="text-[11px]" />
+                            {totalRegisteredUsers} akun terdaftar
+                        </div>
+                    </div>
+
+                    <div className="h-72 w-full">
+                        {loading ? (
+                            <div className="h-full flex items-center justify-center text-sm text-slate-500">Memuat laporan user...</div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={userGrowthData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ede7db" />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
+                                    <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                                    <RechartsTooltip
+                                        cursor={{ fill: '#f8f7f3' }}
+                                        contentStyle={{ borderRadius: '0.75rem', border: '1px solid #e7dfd0', boxShadow: '0 10px 20px -12px rgba(15, 23, 42, 0.35)' }}
+                                    />
+                                    <Bar dataKey="total" name="User Baru" fill="#35518b" radius={[8, 8, 0, 0]} barSize={22} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
+                    </div>
+                </div>
+
+                <div className="rounded-2xl border border-[#e7dfd0] bg-white p-5 shadow-sm">
+                    <div className="flex items-start justify-between gap-3 mb-5">
+                        <div>
+                            <h2 className="text-xl font-bold text-[#0b1e45]">Ringkasan User</h2>
+                            <p className="text-xs text-slate-500">Status akun dan distribusi role pengguna</p>
+                        </div>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#e7dfd0] bg-[#fbfaf6] text-[#35518b]">
+                            <FaUsers size={16} />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl border border-[#e7dfd0] bg-[#fbfaf6] p-4">
+                            <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Total</p>
+                            <p className="mt-2 text-3xl font-bold text-[#0b1e45]">{totalRegisteredUsers}</p>
+                            <p className="mt-1 text-xs text-slate-500">Seluruh akun sistem</p>
+                        </div>
+                        <div className="rounded-2xl border border-[#d8ecdb] bg-[#f6fbf7] p-4">
+                            <p className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-700">Aktif</p>
+                            <p className="mt-2 text-3xl font-bold text-emerald-700">{totalActiveUsers}</p>
+                            <p className="mt-1 text-xs text-emerald-700/80">{totalInactiveUsers} akun nonaktif</p>
+                        </div>
+                    </div>
+
+                    <div className="mt-5">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-[#0b1e45]">Distribusi Role</h3>
+                            <span className="text-[11px] text-slate-500">Berdasarkan total akun</span>
+                        </div>
+                        <div className="mt-3 space-y-3">
+                            {userRoleData.map((role) => {
+                                const percentage = totalRegisteredUsers > 0
+                                    ? Math.round(((Number(role.total) || 0) / totalRegisteredUsers) * 100)
+                                    : 0;
+
+                                return (
+                                    <div key={role.key}>
+                                        <div className="flex items-center justify-between gap-3">
+                                            <span className="text-sm font-medium text-slate-700">{role.label}</span>
+                                            <span className="text-xs font-semibold text-slate-500">{role.total} akun</span>
+                                        </div>
+                                        <div className="mt-2 h-2 rounded-full bg-[#f1ede5]">
+                                            <div
+                                                className="h-full rounded-full bg-[#35518b] transition-all"
+                                                style={{ width: `${Math.min(100, percentage)}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -492,80 +633,134 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="rounded-2xl border border-[#e7dfd0] bg-white p-5 lg:col-span-2 shadow-sm">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-xl font-bold text-[#0b1e45]">Daftar Booking Terbaru</h2>
-                        <button className="text-slate-400 hover:text-slate-600"><FaEllipsisV size={14} /></button>
-                    </div>
-                    <div className="overflow-x-auto responsive-table-wrap">
-                        <table className="admin-table w-full text-sm text-left min-w-[860px]">
-                            <thead className="text-slate-600 border-b border-[#ece4d6]">
+            <div className="rounded-2xl border border-[#e7dfd0] bg-white p-5 shadow-sm">
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold text-[#0b1e45]">Daftar Booking Terbaru</h2>
+                    <button className="text-slate-400 hover:text-slate-600"><FaEllipsisV size={14} /></button>
+                </div>
+                <div className="overflow-x-auto responsive-table-wrap">
+                    <table className="admin-table w-full text-sm text-left min-w-[860px]">
+                        <thead className="text-slate-600 border-b border-[#ece4d6]">
+                            <tr>
+                                <th className="px-4 py-3 font-semibold">Nama</th>
+                                <th className="px-4 py-3 font-semibold">ID Booking</th>
+                                <th className="px-4 py-3 font-semibold">Perumahan</th>
+                                <th className="px-4 py-3 font-semibold">Tipe</th>
+                                <th className="px-4 py-3 font-semibold">Tanggal</th>
+                                <th className="px-4 py-3 font-semibold">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f0eadf]">
+                            {recentBookingsData.length === 0 ? (
                                 <tr>
-                                    <th className="px-4 py-3 font-semibold">Nama</th>
-                                    <th className="px-4 py-3 font-semibold">ID Booking</th>
-                                    <th className="px-4 py-3 font-semibold">Perumahan</th>
-                                    <th className="px-4 py-3 font-semibold">Tipe</th>
-                                    <th className="px-4 py-3 font-semibold">Tanggal</th>
-                                    <th className="px-4 py-3 font-semibold">Status</th>
+                                    <td className="px-4 py-8 text-slate-500" colSpan="6">
+                                        Belum ada data booking.
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[#f0eadf]">
-                                {recentBookingsData.length === 0 ? (
-                                    <tr>
-                                        <td className="px-4 py-8 text-slate-500" colSpan="6">
-                                            Belum ada data booking.
+                            ) : (
+                                paginatedRecentBookings.map((booking) => (
+                                    <tr key={booking.id} className="hover:bg-[#fbfaf7] transition-colors">
+                                        <td className="px-4 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-[#eef2fb] text-[#35518b] flex items-center justify-center text-xs font-bold">
+                                                    {(booking.name || 'U').slice(0, 1).toUpperCase()}
+                                                </div>
+                                                <span className="font-semibold text-slate-700">{booking.name}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-4 text-slate-500 font-medium">{booking.code}</td>
+                                        <td className="px-4 py-4 text-slate-700 font-medium">{booking.property}</td>
+                                        <td className="px-4 py-4 text-slate-700 font-medium">{booking.type}</td>
+                                        <td className="px-4 py-4 text-slate-500 font-medium">{formatDate(booking.date)}</td>
+                                        <td className="px-4 py-4">
+                                            <span className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-lg border ${formatStatusClass(booking.status)}`}>
+                                                {booking.status}
+                                            </span>
                                         </td>
                                     </tr>
-                                ) : (
-                                    recentBookingsData.map((booking) => (
-                                        <tr key={booking.id} className="hover:bg-[#fbfaf7] transition-colors">
-                                            <td className="px-4 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-lg bg-[#eef2fb] text-[#35518b] flex items-center justify-center text-xs font-bold">
-                                                        {(booking.name || 'U').slice(0, 1).toUpperCase()}
-                                                    </div>
-                                                    <span className="font-semibold text-slate-700">{booking.name}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-4 text-slate-500 font-medium">{booking.code}</td>
-                                            <td className="px-4 py-4 text-slate-700 font-medium">{booking.property}</td>
-                                            <td className="px-4 py-4 text-slate-700 font-medium">{booking.type}</td>
-                                            <td className="px-4 py-4 text-slate-500 font-medium">{formatDate(booking.date)}</td>
-                                            <td className="px-4 py-4">
-                                                <span className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-lg border ${formatStatusClass(booking.status)}`}>
-                                                    {booking.status}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
                 </div>
+                <div className="mt-4">
+                    <TableSlidePagination
+                        rangeStart={recentBookingsRangeStart}
+                        rangeEnd={recentBookingsRangeEnd}
+                        totalItems={recentBookingsData.length}
+                        totalPages={recentBookingsTotalPages}
+                        currentPage={recentBookingsPage}
+                        itemLabel="booking"
+                        canPrevious={canPreviousRecentBookings}
+                        canNext={canNextRecentBookings}
+                        onPrevious={goPreviousRecentBookings}
+                        onNext={goNextRecentBookings}
+                    />
+                </div>
+            </div>
 
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 <div className="rounded-2xl border border-[#e7dfd0] bg-white p-5 shadow-sm flex flex-col">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-bold text-[#0b1e45]">Aktivitas Terbaru</h2>
+                    <div className="flex items-center justify-between gap-3 mb-6">
+                        <div>
+                            <h2 className="text-xl font-bold text-[#0b1e45]">Aktivitas Terbaru</h2>
+                            <p className="text-xs text-slate-500">Perubahan status booking yang paling baru</p>
+                        </div>
                         <button className="text-slate-400 hover:text-slate-600"><FaEllipsisV size={14} /></button>
                     </div>
 
-                    <div className="flex-1 space-y-5">
+                    <div className="flex-1 space-y-3">
                         {recentActivities.length === 0 ? (
                             <p className="text-sm text-slate-500">Belum ada aktivitas terbaru.</p>
                         ) : (
                             recentActivities.map((item, idx) => (
-                                <div key={`${item.subtitle}-${idx}`} className="flex items-center gap-3">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${activityIconClass(item.icon_type)}`}>
+                                <div key={`${item.subtitle}-${idx}`} className="flex items-start gap-3 rounded-2xl border border-[#ece4d6] bg-[#fbfaf6] px-3 py-3">
+                                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm ${activityIconClass(item.icon_type)}`}>
                                         {renderActivityIcon(item.icon_type)}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h4 className="text-sm font-bold text-slate-800">{item.title}</h4>
+                                        <h4 className="text-sm font-semibold text-slate-800">{item.title}</h4>
                                         <p className="text-xs text-slate-500 truncate">{item.subtitle}</p>
+                                        <p className="mt-1 text-[11px] text-slate-400">{item.time}</p>
                                     </div>
-                                    <div className="text-xs text-slate-400 whitespace-nowrap">
-                                        {item.time}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                <div className="rounded-2xl border border-[#e7dfd0] bg-white p-5 shadow-sm flex flex-col">
+                    <div className="flex items-center justify-between gap-3 mb-6">
+                        <div>
+                            <h2 className="text-xl font-bold text-[#0b1e45]">User Terbaru</h2>
+                            <p className="text-xs text-slate-500">5 akun yang paling baru terdaftar</p>
+                        </div>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#e7dfd0] bg-[#fbfaf6] text-[#35518b]">
+                            <FaUsers size={16} />
+                        </div>
+                    </div>
+
+                    <div className="flex-1 space-y-3">
+                        {recentUsers.length === 0 ? (
+                            <p className="text-sm text-slate-500">Belum ada user terdaftar.</p>
+                        ) : (
+                            recentUsers.map((item) => (
+                                <div key={item.id} className="flex items-start gap-3 rounded-2xl border border-[#ece4d6] bg-[#fbfaf6] px-3 py-3">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eaf0fb] text-sm font-bold text-[#35518b]">
+                                        {(item.name || 'U').slice(0, 1).toUpperCase()}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <p className="text-sm font-semibold text-slate-800">{item.name}</p>
+                                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${roleBadgeClass(item.role_key)}`}>
+                                                {item.role}
+                                            </span>
+                                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${userStatusClass(item.is_active)}`}>
+                                                {item.status}
+                                            </span>
+                                        </div>
+                                        <p className="mt-1 truncate text-xs text-slate-500">{item.email}</p>
+                                        <p className="mt-1 text-[11px] text-slate-400">Terdaftar {formatDate(item.registered_at)}</p>
                                     </div>
                                 </div>
                             ))

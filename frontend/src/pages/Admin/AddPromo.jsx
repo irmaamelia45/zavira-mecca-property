@@ -4,8 +4,8 @@ import { FaArrowLeft, FaSave } from 'react-icons/fa';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { Card, CardContent } from '../../components/ui/Card';
-import { API_BASE } from '../../utils/promo';
 import { authHeaders } from '../../lib/auth';
+import { apiJson } from '../../lib/api';
 
 export default function AddPromo() {
     const navigate = useNavigate();
@@ -32,13 +32,10 @@ export default function AddPromo() {
     useEffect(() => {
         const fetchProperties = async () => {
             try {
-                const response = await fetch(`${API_BASE}/api/admin/perumahan/options`, {
+                const data = await apiJson('/admin/perumahan/options', {
                     headers: authHeaders(),
+                    defaultErrorMessage: 'Gagal memuat data perumahan.',
                 });
-                if (!response.ok) {
-                    throw new Error('Gagal memuat data perumahan.');
-                }
-                const data = await response.json();
                 setPropertyOptions(data || []);
             } catch (err) {
                 setPropertyError(err.message || 'Gagal memuat data perumahan.');
@@ -115,16 +112,12 @@ export default function AddPromo() {
             payload.append('deskripsi', formData.description || '');
             formData.propertyIds.forEach((id) => payload.append('property_ids[]', id));
 
-            const response = await fetch(`${API_BASE}/api/promos`, {
+            await apiJson('/promos', {
                 method: 'POST',
                 headers: authHeaders(),
                 body: payload,
+                defaultErrorMessage: 'Gagal menyimpan promo.',
             });
-
-            if (!response.ok) {
-                const message = await response.json().catch(() => ({}));
-                throw new Error(message?.message || 'Gagal menyimpan promo.');
-            }
 
             alert('Promo Berhasil Ditambahkan!');
             navigate('/admin/promos');

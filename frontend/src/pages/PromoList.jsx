@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import PromoCard from '../components/ui/PromoCard';
-import { fetchJsonWithFallback, mapPromoFromApi, isPromoActive, normalizeApiListPayload } from '../utils/promo';
+import { apiJson } from '../lib/api';
+import { mapPromoFromApi, isPromoActive, normalizeApiListPayload } from '../utils/promo';
 
 export default function PromoList() {
     const [promos, setPromos] = useState([]);
@@ -12,7 +13,7 @@ export default function PromoList() {
     useEffect(() => {
         const fetchPromos = async () => {
             try {
-                const data = await fetchJsonWithFallback('/api/promos');
+                const data = await apiJson('/promos');
                 setPromos(normalizeApiListPayload(data).map(mapPromoFromApi));
             } catch (err) {
                 setError(err.message || 'Gagal memuat data promo. Pastikan backend aktif dan URL API benar.');

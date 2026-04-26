@@ -4,8 +4,10 @@ import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { Card, CardContent } from '../../components/ui/Card';
 import { FiArrowLeft, FiCheckCircle, FiFileText, FiMapPin, FiSlash, FiUser, FiXCircle } from 'react-icons/fi';
-import { API_BASE, formatMoney } from '../../utils/promo';
+import { formatMoney } from '../../utils/promo';
 import { authHeaders } from '../../lib/auth';
+import { apiJson, resolveAssetUrl } from '../../lib/api';
+import { formatPhoneForDisplay } from '../../lib/phone';
 
 export default function BookingDetail() {
     const { id } = useParams();
@@ -20,13 +22,10 @@ export default function BookingDetail() {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`${API_BASE}/api/admin/bookings/${id}`, {
+            const data = await apiJson(`/admin/bookings/${id}`, {
                 headers: authHeaders(),
+                defaultErrorMessage: 'Detail booking tidak ditemukan.',
             });
-            if (!response.ok) {
-                throw new Error('Detail booking tidak ditemukan.');
-            }
-            const data = await response.json();
             setBooking(data);
             setAdminNote(data?.catatan_admin || '');
         } catch (err) {
@@ -58,6 +57,13 @@ export default function BookingDetail() {
             minute: '2-digit',
         });
     };
+    const formatMonthYear = (value) => {
+        if (!value) return 'Belum diatur admin';
+        return new Date(value).toLocaleDateString('id-ID', {
+            month: 'long',
+            year: 'numeric',
+        });
+    };
 
     const formatJobType = (value) => {
         if (value === 'fixed_income') return 'Fixed Income';
@@ -86,7 +92,7 @@ export default function BookingDetail() {
         setUpdating(true);
         setError('');
         try {
-            const response = await fetch(`${API_BASE}/api/admin/bookings/${booking.id}/status`, {
+            const data = await apiJson(`/admin/bookings/${booking.id}/status`, {
                 method: 'PATCH',
                 headers: authHeaders({
                     'Content-Type': 'application/json',
@@ -95,11 +101,8 @@ export default function BookingDetail() {
                     status_booking: nextStatus,
                     catatan_admin: adminNote.trim() || null,
                 }),
+                defaultErrorMessage: 'Gagal memperbarui status.',
             });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(data?.message || 'Gagal memperbarui status.');
-            }
             const nextBooking = data.booking || booking;
             setBooking(nextBooking);
             setAdminNote(nextBooking?.catatan_admin || '');
@@ -116,7 +119,7 @@ export default function BookingDetail() {
         setUpdating(true);
         setError('');
         try {
-            const response = await fetch(`${API_BASE}/api/admin/bookings/${booking.id}/status`, {
+            const data = await apiJson(`/admin/bookings/${booking.id}/status`, {
                 method: 'PATCH',
                 headers: authHeaders({
                     'Content-Type': 'application/json',
@@ -125,11 +128,8 @@ export default function BookingDetail() {
                     status_booking: booking.status,
                     catatan_admin: adminNote.trim() || null,
                 }),
+                defaultErrorMessage: 'Gagal menyimpan catatan admin.',
             });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(data?.message || 'Gagal menyimpan catatan admin.');
-            }
             const nextBooking = data.booking || booking;
             setBooking(nextBooking);
             setAdminNote(nextBooking?.catatan_admin || '');
@@ -256,6 +256,11 @@ export default function BookingDetail() {
                         <p className="font-semibold text-gray-900">
                             {booking.unit?.code ? `${booking.unit.code} (${booking.unit.block_name || '-'})` : '-'}
                         </p>
+                        {booking.unit?.sales_mode === 'indent' && (
+                            <p className="mt-2 text-xs font-medium text-amber-700">
+                                Unit ini masih dalam tahap pembangunan (Indent). Estimasi selesai: {formatMonthYear(booking.unit?.estimated_completion_date)}
+                            </p>
+                        )}
                     </div>
                     <div className="rounded-md border border-gray-100 bg-gray-50 px-4 py-3">
                         <p className="text-gray-500">Tanggal Booking</p>
@@ -264,6 +269,14 @@ export default function BookingDetail() {
                     <div className="rounded-md border border-gray-100 bg-gray-50 px-4 py-3">
                         <p className="text-gray-500">Catatan Admin</p>
                         <p className="font-semibold text-gray-900">{booking.catatan_admin || '-'}</p>
+                    </div>
+                    <div className="rounded-md border border-gray-100 bg-gray-50 px-4 py-3">
+                        <p className="text-gray-500">No. Rekening</p>
+                        <p className="font-semibold text-gray-900">{booking.no_rekening || '-'}</p>
+                    </div>
+                    <div className="rounded-md border border-gray-100 bg-gray-50 px-4 py-3">
+                        <p className="text-gray-500">Nominal DP</p>
+                        <p className="font-semibold text-gray-900">{booking.range_harga_dp || '-'}</p>
                     </div>
                     <div className="rounded-md border border-gray-100 bg-gray-50 px-4 py-3">
                         <p className="text-gray-500">Pekerjaan</p>
@@ -295,7 +308,7 @@ export default function BookingDetail() {
                         <div className="text-sm space-y-2">
                             <p><span className="text-gray-500">Nama:</span> <span className="font-medium text-gray-900">{booking.user?.name || '-'}</span></p>
                             <p><span className="text-gray-500">Email:</span> <span className="font-medium text-gray-900">{booking.user?.email || '-'}</span></p>
-                            <p><span className="text-gray-500">No. HP:</span> <span className="font-medium text-gray-900">{booking.user?.phone || '-'}</span></p>
+                            <p><span className="text-gray-500">No. HP:</span> <span className="font-medium text-gray-900">{formatPhoneForDisplay(booking.user?.phone) || '-'}</span></p>
                         </div>
                     </CardContent>
                 </Card>
@@ -323,12 +336,13 @@ export default function BookingDetail() {
                             {booking.documents.map((doc) => (
                                 <a
                                     key={doc.id}
-                                    href={doc.path?.startsWith('http') ? doc.path : `${API_BASE}${doc.path}`}
+                                    href={resolveAssetUrl(doc.path)}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="block rounded-md border border-gray-200 px-4 py-3 text-sm text-primary-700 hover:bg-gray-50"
                                 >
-                                    {doc.nama_file}
+                                    <span className="block font-semibold text-gray-900">{doc.jenis_dokumen || 'Dokumen'}</span>
+                                    <span className="mt-1 block text-sm text-primary-700">{doc.nama_file}</span>
                                 </a>
                             ))}
                         </div>

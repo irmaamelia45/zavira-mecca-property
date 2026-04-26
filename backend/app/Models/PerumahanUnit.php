@@ -20,8 +20,17 @@ class PerumahanUnit extends Model
         'nomor_unit',
         'kode_unit',
         'status_unit',
+        'sales_mode',
+        'estimated_completion_date',
         'id_booking_terakhir',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'estimated_completion_date' => 'date',
+        ];
+    }
 
     public function perumahan()
     {

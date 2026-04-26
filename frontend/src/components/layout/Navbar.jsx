@@ -4,7 +4,7 @@ import { FiMenu, FiX, FiUser, FiLogOut } from 'react-icons/fi';
 import Button from '../ui/Button';
 import { cn } from '../../lib/utils';
 import logoPt from '../../assets/logo_pt.png';
-import { API_BASE } from '../../utils/promo';
+import { apiFetch } from '../../lib/api';
 import { authHeaders, clearAuth, getStoredUser, isLoggedIn as hasToken } from '../../lib/auth';
 
 export default function Navbar() {
@@ -51,7 +51,7 @@ export default function Navbar() {
 
     const handleLogout = async () => {
         try {
-            await fetch(`${API_BASE}/api/auth/logout`, {
+            await apiFetch('/auth/logout', {
                 method: 'POST',
                 headers: authHeaders(),
             });

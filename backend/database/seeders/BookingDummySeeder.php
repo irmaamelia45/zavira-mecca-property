@@ -16,6 +16,10 @@ class BookingDummySeeder extends Seeder
      */
     public function run(): void
     {
+        if (! filter_var((string) env('ENABLE_DUMMY_SEEDERS', false), FILTER_VALIDATE_BOOLEAN)) {
+            return;
+        }
+
         $userRole = Role::query()->where('nama_role', 'user')->first();
         if (! $userRole) {
             return;

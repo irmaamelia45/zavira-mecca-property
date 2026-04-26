@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Support\PhoneNumber;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -19,6 +21,7 @@ class ProfilPerusahaan extends Model
         'email',
         'telepon',
         'whatsapp',
+        'no_rekening_utj',
         'website',
         'deskripsi',
         'visi',
@@ -27,4 +30,23 @@ class ProfilPerusahaan extends Model
         'penghargaan',
         'struktur_organisasi',
     ];
+
+    protected function whatsapp(): Attribute
+    {
+        return Attribute::make(
+            set: function ($value) {
+                $raw = (string) $value;
+                if (PhoneNumber::digitsOnly($raw) === '') {
+                    return null;
+                }
+
+                $normalized = PhoneNumber::normalizePhone($raw);
+                if ($normalized) {
+                    return $normalized;
+                }
+
+                throw new \InvalidArgumentException('Nomor WhatsApp marketing tidak valid. Gunakan format 08xxxxxxxxxx.');
+            }
+        );
+    }
 }

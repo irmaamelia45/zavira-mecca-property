@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FaEdit, FaFileAlt, FaPlus, FaSave, FaTimes, FaTrash } from 'react-icons/fa';
+import TableSlidePagination from '../../components/admin/TableSlidePagination';
 import Button from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import { authHeaders } from '../../lib/auth';
-import { fetchJsonWithFallback } from '../../utils/promo';
+import { apiJson } from '../../lib/api';
+import useTableSlidePagination from '../../hooks/useTableSlidePagination';
 
 const jenisOptions = [
     { value: 'informasi', label: 'Informasi' },
@@ -32,11 +34,25 @@ export default function KprManagement() {
         []
     );
 
+    const {
+        currentPage,
+        totalPages,
+        paginatedRows: paginatedItems,
+        rangeStart,
+        rangeEnd,
+        canPrevious,
+        canNext,
+        goPrevious,
+        goNext,
+    } = useTableSlidePagination(items, {
+        rowsPerPage: 10,
+    });
+
     const fetchItems = async () => {
         setIsLoading(true);
         setError('');
         try {
-            const data = await fetchJsonWithFallback('/api/kpr-contents');
+            const data = await apiJson('/kpr-contents');
             setItems(data);
         } catch (err) {
             setError(err.message || 'Terjadi kesalahan saat memuat data.');
@@ -82,16 +98,18 @@ export default function KprManagement() {
 
         try {
             const isEdit = Boolean(editingId);
-            await fetchJsonWithFallback(
-                isEdit ? `/api/kpr-contents/${editingId}` : '/api/kpr-contents',
+            await apiJson(
+                isEdit ? `/kpr-contents/${editingId}` : '/kpr-contents',
                 {
-                method: isEdit ? 'PUT' : 'POST',
-                headers: {
-                    ...authHeaders(),
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(formData)
-            });
+                    method: isEdit ? 'PUT' : 'POST',
+                    headers: {
+                        ...authHeaders(),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData),
+                    defaultErrorMessage: 'Terjadi kesalahan saat menyimpan data.',
+                }
+            );
 
             await fetchItems();
             setIsFormOpen(false);
@@ -111,9 +129,10 @@ export default function KprManagement() {
 
         setError('');
         try {
-            await fetchJsonWithFallback(`/api/kpr-contents/${itemId}`, {
+            await apiJson(`/kpr-contents/${itemId}`, {
                 method: 'DELETE',
                 headers: authHeaders(),
+                defaultErrorMessage: 'Terjadi kesalahan saat menghapus data.',
             });
             await fetchItems();
         } catch (err) {
@@ -244,7 +263,7 @@ export default function KprManagement() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    items.map((item) => (
+                                    paginatedItems.map((item) => (
                                         <tr key={item.id_kpr_info} className="hover:bg-slate-50/70 transition-colors">
                                             <td className="px-6 py-4 font-semibold text-gray-900">{item.judul}</td>
                                             <td className="px-6 py-4 text-gray-500">
@@ -279,6 +298,22 @@ export default function KprManagement() {
                             </tbody>
                         </table>
                     </div>
+                    {!isLoading && (
+                        <div className="border-t border-slate-100 p-4">
+                            <TableSlidePagination
+                                rangeStart={rangeStart}
+                                rangeEnd={rangeEnd}
+                                totalItems={items.length}
+                                totalPages={totalPages}
+                                currentPage={currentPage}
+                                itemLabel="konten"
+                                canPrevious={canPrevious}
+                                canNext={canNext}
+                                onPrevious={goPrevious}
+                                onNext={goNext}
+                            />
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>

@@ -4,9 +4,9 @@ import { FaArrowLeft, FaSave } from 'react-icons/fa';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { Card, CardContent } from '../../components/ui/Card';
-import { fetchJsonWithFallback } from '../../utils/promo';
+import { apiJson } from '../../lib/api';
 import { authHeaders, getUserRole } from '../../lib/auth';
-import { normalizePhone62 } from '../../lib/phone';
+import { formatPhoneForDisplay, normalizePhone } from '../../lib/phone';
 
 const initialAdminForm = {
     nama: '',
@@ -30,7 +30,7 @@ export default function AddAdminUser() {
     const updateAdminField = (key, value) => {
         setAdminForm((prev) => ({
             ...prev,
-            [key]: key === 'no_hp' ? normalizePhone62(value) : value,
+            [key]: key === 'no_hp' ? formatPhoneForDisplay(normalizePhone(value)) : value,
         }));
 
         if (error) {
@@ -46,12 +46,13 @@ export default function AddAdminUser() {
         setError('');
 
         try {
-            const data = await fetchJsonWithFallback('/api/admin/users/admins', {
+            const data = await apiJson('/admin/users/admins', {
                 method: 'POST',
                 headers: authHeaders({
                     'Content-Type': 'application/json',
                 }),
                 body: JSON.stringify(adminForm),
+                defaultErrorMessage: 'Gagal membuat akun Admin Perumahan.',
             });
 
             navigate('/admin/admin-users', {
@@ -143,7 +144,7 @@ export default function AddAdminUser() {
                                     label="No. HP"
                                     value={adminForm.no_hp}
                                     onChange={(e) => updateAdminField('no_hp', e.target.value)}
-                                    placeholder="628xxxxxxxxxx"
+                                    placeholder="08xxxxxxxxxx"
                                     required
                                 />
                                 <Input

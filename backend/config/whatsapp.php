@@ -5,6 +5,75 @@ return [
     'office_maps_link' => env('OFFICE_MAPS_LINK', 'https://maps.google.com'),
 
     'templates' => [
+        'marketing_booking_masuk' => <<<'TEXT'
+📢 NOTIFIKASI BOOKING BARU
+
+Ada booking baru dari konsumen dengan detail berikut:
+
+Nama: {nama_user}
+No HP: {no_hp_user}
+
+Perumahan: {nama_perumahan}
+Unit: {nama_unit}
+Tanggal Booking: {tanggal_booking}
+
+Status: Menunggu Verifikasi
+
+Silakan segera lakukan pengecekan dan verifikasi booking pada sistem.
+TEXT,
+
+        'marketing_status_disetujui' => <<<'TEXT'
+✅ BOOKING DISETUJUI
+
+Booking berikut telah DISETUJUI:
+
+Nama: {nama_user}
+Perumahan: {nama_perumahan}
+Unit: {nama_unit}
+Tanggal Booking: {tanggal_booking}
+
+Silakan lanjutkan proses koordinasi dengan konsumen untuk pengumpulan berkas KPR.
+TEXT,
+
+        'marketing_status_ditolak' => <<<'TEXT'
+❌ BOOKING DITOLAK
+
+Booking berikut telah DITOLAK:
+
+Nama: {nama_user}
+Perumahan: {nama_perumahan}
+Unit: {nama_unit}
+Tanggal Booking: {tanggal_booking}
+
+Silakan lakukan follow up kepada konsumen apabila diperlukan.
+TEXT,
+
+        'marketing_status_selesai' => <<<'TEXT'
+🎉 BOOKING SELESAI
+
+Proses booking telah SELESAI:
+
+Nama: {nama_user}
+Perumahan: {nama_perumahan}
+Unit: {nama_unit}
+
+Proses KPR telah selesai dan siap masuk tahap akad.
+Silakan lanjutkan koordinasi untuk proses akad dengan pihak terkait.
+TEXT,
+
+        'marketing_status_dibatalkan' => <<<'TEXT'
+⚠️ BOOKING DIBATALKAN
+
+Booking berikut telah DIBATALKAN:
+
+Nama: {nama_user}
+Perumahan: {nama_perumahan}
+Unit: {nama_unit}
+
+Pembatalan disebabkan oleh pengajuan KPR yang tidak disetujui oleh bank.
+Silakan update data dan lakukan tindak lanjut jika diperlukan.
+TEXT,
+
         'admin_booking_masuk' => <<<'TEXT'
 [NOTIFIKASI BOOKING BARU]
 

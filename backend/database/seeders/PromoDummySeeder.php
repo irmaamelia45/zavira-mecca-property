@@ -13,6 +13,10 @@ class PromoDummySeeder extends Seeder
      */
     public function run(): void
     {
+        if (! filter_var((string) env('ENABLE_DUMMY_SEEDERS', false), FILTER_VALIDATE_BOOLEAN)) {
+            return;
+        }
+
         $property = Perumahan::query()
             ->where('nama_perumahan', 'Mecca Green Valley')
             ->first();
@@ -55,4 +59,3 @@ class PromoDummySeeder extends Seeder
         $promo->perumahans()->sync([$property->id_perumahan]);
     }
 }
-

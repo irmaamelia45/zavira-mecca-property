@@ -6,12 +6,12 @@ import { Card, CardContent } from '../components/ui/Card';
 import { FaTrash } from 'react-icons/fa';
 import { FiArrowLeft, FiArrowUpRight, FiMapPin } from 'react-icons/fi';
 import {
-    API_BASE,
     getPromoPricing as calculatePromoPricing,
     mapPromoFromApi,
     normalizeApiListPayload,
     resolveImage,
 } from '../utils/promo';
+import { apiJson } from '../lib/api';
 import { getFavoriteIds, removeFavoriteProperty } from '../lib/favorites';
 
 const getCategoryLabel = (category) => {
@@ -33,7 +33,7 @@ const getCategoryBadgeClass = (category) => {
 const getStatusBadgeClass = (status) => {
     const key = String(status || '').toLowerCase();
     if (key.includes('coming')) return 'bg-amber-50/95 text-amber-700 border-amber-200';
-    if (key.includes('sold')) return 'bg-rose-50/95 text-rose-700 border-rose-200';
+    if (key.includes('sold') || key.includes('terjual')) return 'bg-rose-50/95 text-rose-700 border-rose-200';
     return 'bg-emerald-50/95 text-emerald-700 border-emerald-200';
 };
 
@@ -65,24 +65,16 @@ export default function AccountFavorites() {
                     return;
                 }
 
-                const propertiesResponse = await fetch(`${API_BASE}/api/perumahan`);
-                if (!propertiesResponse.ok) {
-                    throw new Error('Gagal memuat data favorit.');
-                }
-
-                const propertiesData = await propertiesResponse.json();
+                const propertiesData = await apiJson('/perumahan', {
+                    defaultErrorMessage: 'Gagal memuat data favorit.',
+                });
                 const normalizedProperties = normalizeApiListPayload(propertiesData);
                 const byId = new Map(normalizedProperties.map((item) => [Number(item.id), item]));
                 const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
                 setFavorites(ordered);
 
                 try {
-                    const promosResponse = await fetch(`${API_BASE}/api/promos`);
-                    if (!promosResponse.ok) {
-                        setPromos([]);
-                        return;
-                    }
-                    const promosData = await promosResponse.json();
+                    const promosData = await apiJson('/promos');
                     setPromos(normalizeApiListPayload(promosData).map(mapPromoFromApi));
                 } catch {
                     setPromos([]);
@@ -140,7 +132,7 @@ export default function AccountFavorites() {
                         const promoPricing = getPromoPricing(item.id, basePrice);
                         const finalPrice = Math.max(0, basePrice - promoPricing.discount);
                         const mainImage = item.image ? resolveImage(item.image) : '';
-                        const statusLabel = String(item.status || 'Available');
+                        const statusLabel = String(item.status || 'Tersedia');
                         const availableUnits = Number(item.availableUnits) || 0;
 
                         return (

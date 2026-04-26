@@ -4,8 +4,8 @@ import { FaArrowLeft, FaSave } from 'react-icons/fa';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { Card, CardContent } from '../../components/ui/Card';
-import { API_BASE } from '../../utils/promo';
 import { authHeaders } from '../../lib/auth';
+import { apiJson } from '../../lib/api';
 
 export default function EditPromo() {
     const navigate = useNavigate();
@@ -34,13 +34,10 @@ export default function EditPromo() {
     useEffect(() => {
         const fetchProperties = async () => {
             try {
-                const response = await fetch(`${API_BASE}/api/admin/perumahan/options`, {
+                const data = await apiJson('/admin/perumahan/options', {
                     headers: authHeaders(),
+                    defaultErrorMessage: 'Gagal memuat data perumahan.',
                 });
-                if (!response.ok) {
-                    throw new Error('Gagal memuat data perumahan.');
-                }
-                const data = await response.json();
                 setPropertyOptions(data || []);
             } catch (err) {
                 setPropertyError(err.message || 'Gagal memuat data perumahan.');
@@ -56,11 +53,9 @@ export default function EditPromo() {
         const fetchPromo = async () => {
             try {
                 setIsFetching(true);
-                const response = await fetch(`${API_BASE}/api/promos/${id}`);
-                if (!response.ok) {
-                    throw new Error('Promo tidak ditemukan.');
-                }
-                const data = await response.json();
+                const data = await apiJson(`/promos/${id}`, {
+                    defaultErrorMessage: 'Promo tidak ditemukan.',
+                });
 
                 setFormData({
                     title: data.judul || '',
@@ -149,16 +144,12 @@ export default function EditPromo() {
             payload.append('_method', 'PUT');
             formData.propertyIds.forEach((idValue) => payload.append('property_ids[]', idValue));
 
-            const response = await fetch(`${API_BASE}/api/promos/${id}`, {
+            await apiJson(`/promos/${id}`, {
                 method: 'POST',
                 headers: authHeaders(),
                 body: payload,
+                defaultErrorMessage: 'Gagal menyimpan promo.',
             });
-
-            if (!response.ok) {
-                const message = await response.json().catch(() => ({}));
-                throw new Error(message?.message || 'Gagal menyimpan promo.');
-            }
 
             alert('Promo Berhasil Diperbarui!');
             navigate('/admin/promos');

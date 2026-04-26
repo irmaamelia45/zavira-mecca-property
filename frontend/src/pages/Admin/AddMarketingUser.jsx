@@ -4,9 +4,9 @@ import { FaArrowLeft, FaSave } from 'react-icons/fa';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { Card, CardContent } from '../../components/ui/Card';
-import { fetchJsonWithFallback } from '../../utils/promo';
+import { apiJson } from '../../lib/api';
 import { authHeaders } from '../../lib/auth';
-import { normalizePhone62 } from '../../lib/phone';
+import { formatPhoneForDisplay, normalizePhone } from '../../lib/phone';
 
 const initialMarketingForm = {
     nama: '',
@@ -27,7 +27,7 @@ export default function AddMarketingUser() {
     const updateMarketingField = (key, value) => {
         setMarketingForm((prev) => ({
             ...prev,
-            [key]: key === 'no_hp' ? normalizePhone62(value) : value,
+            [key]: key === 'no_hp' ? formatPhoneForDisplay(normalizePhone(value)) : value,
         }));
         if (error) {
             setError('');
@@ -40,12 +40,13 @@ export default function AddMarketingUser() {
         setError('');
 
         try {
-            const data = await fetchJsonWithFallback('/api/admin/users/marketing', {
+            const data = await apiJson('/admin/users/marketing', {
                 method: 'POST',
                 headers: authHeaders({
                     'Content-Type': 'application/json',
                 }),
                 body: JSON.stringify(marketingForm),
+                defaultErrorMessage: 'Gagal membuat akun marketing.',
             });
 
             navigate('/admin/marketing-users', {
@@ -127,7 +128,7 @@ export default function AddMarketingUser() {
                                 label="No. HP"
                                 value={marketingForm.no_hp}
                                 onChange={(e) => updateMarketingField('no_hp', e.target.value)}
-                                placeholder="628xxxxxxxxxx"
+                                placeholder="08xxxxxxxxxx"
                                 required
                             />
                             <Input

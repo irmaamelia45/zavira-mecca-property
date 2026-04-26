@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FaPlus, FaTrash } from 'react-icons/fa';
+import TableSlidePagination from '../../components/admin/TableSlidePagination';
 import Button from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
-import { fetchJsonWithFallback } from '../../utils/promo';
+import { apiJson } from '../../lib/api';
 import { authHeaders, getUserRole } from '../../lib/auth';
+import useTableSlidePagination from '../../hooks/useTableSlidePagination';
+import { formatPhoneForDisplay } from '../../lib/phone';
 
 const formatDate = (value) => {
     if (!value) return '-';
@@ -30,6 +33,20 @@ export default function AdminUserManagement() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
+    const {
+        currentPage,
+        totalPages,
+        paginatedRows: paginatedAdminUsers,
+        rangeStart,
+        rangeEnd,
+        canPrevious,
+        canNext,
+        goPrevious,
+        goNext,
+    } = useTableSlidePagination(adminUsers, {
+        rowsPerPage: 10,
+    });
+
     const fetchAdminUsers = async () => {
         if (!isSuperadmin) {
             setAdminUsers([]);
@@ -40,8 +57,9 @@ export default function AdminUserManagement() {
         setLoadingAdminUsers(true);
         setError('');
         try {
-            const data = await fetchJsonWithFallback('/api/admin/users/admins', {
+            const data = await apiJson('/admin/users/admins', {
                 headers: authHeaders(),
+                defaultErrorMessage: 'Gagal memuat akun Admin Perumahan.',
             });
             setAdminUsers(Array.isArray(data) ? data : []);
         } catch (err) {
@@ -74,9 +92,10 @@ export default function AdminUserManagement() {
         setSuccess('');
 
         try {
-            const data = await fetchJsonWithFallback(`/api/admin/users/admins/${user.id}`, {
+            const data = await apiJson(`/admin/users/admins/${user.id}`, {
                 method: 'DELETE',
                 headers: authHeaders(),
+                defaultErrorMessage: 'Gagal menghapus akun Admin Perumahan.',
             });
 
             setSuccess(data?.message || 'Akun Admin Perumahan berhasil dihapus.');
@@ -101,7 +120,7 @@ export default function AdminUserManagement() {
         setSuccess('');
 
         try {
-            const data = await fetchJsonWithFallback(`/api/admin/users/admins/${user.id}/status`, {
+            const data = await apiJson(`/admin/users/admins/${user.id}/status`, {
                 method: 'PATCH',
                 headers: authHeaders({
                     'Content-Type': 'application/json',
@@ -109,6 +128,7 @@ export default function AdminUserManagement() {
                 body: JSON.stringify({
                     is_active: nextStatus,
                 }),
+                defaultErrorMessage: 'Gagal memperbarui status akun Admin Perumahan.',
             });
 
             const updatedUser = data?.user && typeof data.user === 'object' ? data.user : null;
@@ -190,11 +210,11 @@ export default function AdminUserManagement() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {adminUsers.map((user) => (
+                                        {paginatedAdminUsers.map((user) => (
                                             <tr key={user.id} className="border-b border-gray-100">
                                                 <td className="px-5 py-4 text-gray-900 font-medium">{user.nama}</td>
                                                 <td className="px-5 py-4 text-gray-700">{user.email}</td>
-                                                <td className="px-5 py-4 text-gray-700">{user.no_hp}</td>
+                                                <td className="px-5 py-4 text-gray-700">{formatPhoneForDisplay(user.no_hp) || '-'}</td>
                                                 <td className="px-5 py-4">
                                                     <Badge variant={user.is_active ? 'success' : 'destructive'}>
                                                         {user.is_active ? 'Aktif' : 'Nonaktif'}
@@ -233,6 +253,20 @@ export default function AdminUserManagement() {
                                     </tbody>
                                 </table>
                             </div>
+                        )}
+                        {!loadingAdminUsers && adminUsers.length > 0 && (
+                            <TableSlidePagination
+                                rangeStart={rangeStart}
+                                rangeEnd={rangeEnd}
+                                totalItems={adminUsers.length}
+                                totalPages={totalPages}
+                                currentPage={currentPage}
+                                itemLabel="akun admin"
+                                canPrevious={canPrevious}
+                                canNext={canNext}
+                                onPrevious={goPrevious}
+                                onNext={goNext}
+                            />
                         )}
                     </CardContent>
                 </Card>

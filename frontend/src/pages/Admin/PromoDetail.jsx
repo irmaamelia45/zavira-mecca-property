@@ -3,8 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { Card, CardContent } from '../../components/ui/Card';
-import { API_BASE, formatMoney, formatPromoPeriod } from '../../utils/promo';
+import { formatMoney, formatPromoPeriod } from '../../utils/promo';
 import { authHeaders } from '../../lib/auth';
+import { apiJson } from '../../lib/api';
 import { FaArrowLeft, FaClock, FaEdit, FaHome, FaPercent, FaTag, FaTrash } from 'react-icons/fa';
 
 const promoTypeLabel = (value) => {
@@ -26,13 +27,10 @@ export default function PromoDetailAdmin() {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`${API_BASE}/api/promos/${id}`, {
+            const data = await apiJson(`/promos/${id}`, {
                 headers: authHeaders(),
+                defaultErrorMessage: 'Detail promo tidak ditemukan.',
             });
-            if (!response.ok) {
-                throw new Error('Detail promo tidak ditemukan.');
-            }
-            const data = await response.json();
             setPromo(data || null);
         } catch (err) {
             setError(err.message || 'Gagal memuat detail promo.');
@@ -53,14 +51,11 @@ export default function PromoDetailAdmin() {
 
         setDeleting(true);
         try {
-            const response = await fetch(`${API_BASE}/api/promos/${promo.id}`, {
+            await apiJson(`/promos/${promo.id}`, {
                 method: 'DELETE',
                 headers: authHeaders(),
+                defaultErrorMessage: 'Gagal menghapus promo.',
             });
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({}));
-                throw new Error(data?.message || 'Gagal menghapus promo.');
-            }
 
             alert('Promo berhasil dihapus.');
             navigate('/admin/promos');

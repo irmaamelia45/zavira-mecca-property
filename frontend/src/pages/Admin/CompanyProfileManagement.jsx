@@ -4,7 +4,9 @@ import Button from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import { authHeaders } from '../../lib/auth';
-import { fetchJsonWithFallback, resolveImage as resolveApiImage } from '../../utils/promo';
+import { apiJson } from '../../lib/api';
+import { resolveImage as resolveApiImage } from '../../utils/promo';
+import { formatPhoneForDisplay, isValidPhone, normalizePhone } from '../../lib/phone';
 
 export default function CompanyProfileManagement() {
     const [activeTab, setActiveTab] = useState('general');
@@ -37,12 +39,12 @@ export default function CompanyProfileManagement() {
             setIsLoading(true);
             setError('');
             try {
-                const data = await fetchJsonWithFallback('/api/company-profile');
+                const data = await apiJson('/company-profile');
                 if (data) {
                     setGeneralInfo({
                         name: data.nama_perusahaan || '',
                         description: data.deskripsi || '',
-                        whatsapp: data.whatsapp || ''
+                        whatsapp: formatPhoneForDisplay(data.whatsapp || '')
                     });
                     setVisionMission({
                         vision: data.visi || '',
@@ -101,6 +103,10 @@ export default function CompanyProfileManagement() {
         setIsSaving(true);
         setError('');
         try {
+            if (generalInfo.whatsapp && !isValidPhone(generalInfo.whatsapp)) {
+                throw new Error('Nomor WhatsApp marketing tidak valid. Gunakan format 08xxxxxxxxxx.');
+            }
+
             const payloadAwards = awards.map((item) => ({
                 title: item.title,
                 desc: item.desc,
@@ -116,7 +122,7 @@ export default function CompanyProfileManagement() {
             formData.append('_method', 'PUT');
             formData.append('nama_perusahaan', generalInfo.name);
             formData.append('deskripsi', generalInfo.description || '');
-            formData.append('whatsapp', generalInfo.whatsapp || '');
+            formData.append('whatsapp', normalizePhone(generalInfo.whatsapp || ''));
             formData.append('visi', visionMission.vision || '');
             formData.append('misi', visionMission.mission || '');
             formData.append('penghargaan', JSON.stringify(payloadAwards));
@@ -138,10 +144,11 @@ export default function CompanyProfileManagement() {
                 }
             });
 
-            await fetchJsonWithFallback('/api/company-profile', {
+            await apiJson('/company-profile', {
                 method: 'POST',
                 headers: authHeaders(),
-                body: formData
+                body: formData,
+                defaultErrorMessage: 'Gagal menyimpan profil perusahaan.',
             });
 
             alert('Profil Perusahaan berhasil diperbarui!');
@@ -312,11 +319,11 @@ export default function CompanyProfileManagement() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-700">WhatsApp Marketing Utama (62...)</label>
+                                <label className="text-sm font-medium text-gray-700">WhatsApp Marketing Utama (08...)</label>
                                 <Input
                                     value={generalInfo.whatsapp}
-                                    onChange={(e) => setGeneralInfo({ ...generalInfo, whatsapp: e.target.value.replace(/\D/g, '') })}
-                                    placeholder="6281234567890"
+                                    onChange={(e) => setGeneralInfo({ ...generalInfo, whatsapp: formatPhoneForDisplay(normalizePhone(e.target.value)) })}
+                                    placeholder="08xxxxxxxxxx"
                                 />
                             </div>
                         </CardContent>

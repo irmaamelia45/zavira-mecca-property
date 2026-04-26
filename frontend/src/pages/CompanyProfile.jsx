@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FaAward, FaRegBuilding, FaUsers, FaCompass, FaBullseye } from 'react-icons/fa';
+import { FaAward, FaUsers, FaCompass, FaBullseye } from 'react-icons/fa';
 import { Card, CardContent } from '../components/ui/Card';
 import logo from '../assets/logo_pt.png';
-import { fetchJsonWithFallback, resolveImage as resolveApiImage } from '../utils/promo';
+import { apiJson } from '../lib/api';
+import { resolveImage as resolveApiImage } from '../utils/promo';
 
 const defaultProfile = {
     nama_perusahaan: '',
@@ -20,7 +21,7 @@ export default function CompanyProfile() {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const data = await fetchJsonWithFallback('/api/company-profile');
+                const data = await apiJson('/company-profile');
                 if (data) {
                     setProfile((prev) => ({
                         ...prev,
@@ -164,47 +165,51 @@ export default function CompanyProfile() {
             <section className="bg-[#fdfbf6] py-16">
                 <div className="container-custom space-y-6">
                     <div className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-primary-700 shadow-sm">
-                            <FaUsers />
-                        </span>
-                        <h2 className="text-xl font-semibold text-primary-900">Struktur Organisasi</h2>
+                        <div className="flex items-center gap-3">
+                            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-primary-700 shadow-sm">
+                                <FaUsers />
+                            </span>
+                            <h2 className="text-xl font-semibold text-primary-900">Struktur Organisasi</h2>
+                        </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {organization.length ? (
-                            organization.map((person) => (
-                                <Card
-                                    key={person.name || person.role}
-                                    className="group border border-slate-200 shadow-md bg-white rounded-[30px] overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
-                                >
-                                    <CardContent className="p-0">
-                                        <div className="flex h-full flex-col">
-                                            <div className="aspect-[4/3] bg-stone-100 flex items-center justify-center overflow-hidden ring-1 ring-slate-200">
-                                                {person.image ? (
-                                                    <img
-                                                        src={resolveImage(person.image)}
-                                                        alt={person.name || 'Struktur'}
-                                                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                                    />
-                                                ) : (
-                                                    <span className="text-sm text-slate-500">Foto</span>
-                                                )}
+                    {organization.length ? (
+                        <div className="overflow-x-auto pb-3 pr-1 scroll-smooth snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                            <div className="flex gap-4">
+                                {organization.map((person) => (
+                                    <Card
+                                        key={person.name || person.role}
+                                        className="group h-[228px] w-[200px] sm:h-[244px] sm:w-[210px] shrink-0 border border-slate-200 shadow-sm bg-white rounded-[24px] overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg snap-start"
+                                    >
+                                        <CardContent className="h-full p-0">
+                                            <div className="flex h-full flex-col">
+                                                <div className="h-32 md:h-36 bg-stone-100 flex items-center justify-center overflow-hidden ring-1 ring-slate-200">
+                                                    {person.image ? (
+                                                        <img
+                                                            src={resolveImage(person.image)}
+                                                            alt={person.name || 'Struktur'}
+                                                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                                        />
+                                                    ) : (
+                                                        <span className="text-sm text-slate-500">Foto</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex min-h-[100px] flex-1 flex-col items-center justify-center bg-primary-900 px-4 py-3 text-center text-white sm:min-h-[108px]">
+                                                    <p className="flex min-h-[2.5rem] items-center justify-center text-sm font-semibold leading-tight md:text-base">
+                                                        {person.name || 'Nama'}
+                                                    </p>
+                                                    <p className="mt-1 text-[11px] md:text-sm text-slate-200">
+                                                        {person.role || 'Jabatan'}
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <div className="bg-primary-900 px-5 py-4 text-center text-white">
-                                                <p className="text-base md:text-lg font-semibold tracking-wide">
-                                                    {person.name || 'Nama'}
-                                                </p>
-                                                <p className="text-xs md:text-sm text-slate-200">
-                                                    {person.role || 'Jabatan'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))
-                        ) : (
-                            <p className="text-sm text-secondary-600">Belum ada data struktur organisasi.</p>
-                        )}
-                    </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-secondary-600">Belum ada data struktur organisasi.</p>
+                    )}
                 </div>
             </section>
         </div>

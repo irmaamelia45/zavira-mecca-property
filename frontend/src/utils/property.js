@@ -1,11 +1,13 @@
-import { API_BASE, resolveImage } from './promo';
+import { resolveImage } from './promo';
+import { formatPhoneForDisplay } from '../lib/phone';
+import { normalizePropertyUnitBlocks } from './propertyUnits';
 
-export const emptyPropertyForm = {
+export const createEmptyPropertyForm = () => ({
     name: '',
     price: '',
+    kprInterest: '',
     type: '',
     housingType: 'komersil',
-    status: 'Available',
     isActive: true,
     totalUnits: '',
     availableUnits: '',
@@ -19,15 +21,18 @@ export const emptyPropertyForm = {
     bedrooms: '',
     bathrooms: '',
     facilities: [],
+    marketingUserId: '',
     marketingName: '',
     marketingWhatsapp: '',
-    unitBlocks: [
-        { blockName: 'Blok A', unitCount: 1 },
-    ],
-};
+    bankNameUtj: '',
+    noRekeningUtj: '',
+    unitBlocks: normalizePropertyUnitBlocks([]),
+});
+
+export const emptyPropertyForm = createEmptyPropertyForm();
 
 export const normalizeImageSlots = (images = []) => {
-    const slots = Array.from({ length: 4 }, (_, index) => ({
+    const slots = Array.from({ length: 5 }, (_, index) => ({
         index,
         url: images[index] ? resolveImage(images[index]) : '',
         preview: images[index] ? resolveImage(images[index]) : '',
@@ -41,9 +46,9 @@ export const normalizeImageSlots = (images = []) => {
 export const mapApiPropertyToForm = (property) => ({
     name: property?.name || '',
     price: property?.price ?? '',
+    kprInterest: property?.kprInterest ?? '',
     type: property?.type || '',
     housingType: property?.category || 'komersil',
-    status: property?.status || 'Available',
     isActive: Boolean(property?.isActive ?? property?.statusAktif ?? true),
     totalUnits: property?.totalUnits ?? '',
     availableUnits: property?.availableUnits ?? '',
@@ -57,28 +62,45 @@ export const mapApiPropertyToForm = (property) => ({
     bedrooms: property?.beds ?? '',
     bathrooms: property?.baths ?? '',
     facilities: Array.isArray(property?.facilities) ? property.facilities : [],
+    marketingUserId: property?.marketingUserId ?? '',
     marketingName: property?.marketingName || '',
-    marketingWhatsapp: property?.marketingWhatsapp || '',
-    unitBlocks: Array.isArray(property?.blockConfig) && property.blockConfig.length
-        ? property.blockConfig.map((item) => ({
-            blockName: item?.blockName || '',
-            unitCount: Number(item?.unitCount) || 0,
-        }))
-        : [
-            {
-                blockName: 'Blok A',
-                unitCount: Number(property?.totalUnits) || 1,
-            },
-        ],
+    marketingWhatsapp: formatPhoneForDisplay(property?.marketingWhatsapp || ''),
+    bankNameUtj: property?.bankNameUtj || '',
+    noRekeningUtj: property?.noRekeningUtj || '',
+    unitBlocks: normalizePropertyUnitBlocks(
+        Array.isArray(property?.unitBlocks) && property.unitBlocks.length
+            ? property.unitBlocks.map((block) => ({
+                blockName: block?.blockName || '',
+                unitCount: (block?.units || []).length,
+                units: (block?.units || []).map((unit) => ({
+                    id: unit?.id ?? null,
+                    code: unit?.code || '',
+                    status: unit?.status || 'available',
+                    salesMode: unit?.salesMode || 'ready_stock',
+                    estimatedCompletionDate: unit?.estimatedCompletionDate || '',
+                })),
+            }))
+            : Array.isArray(property?.blockConfig) && property.blockConfig.length
+                ? property.blockConfig.map((item) => ({
+                    blockName: item?.blockName || '',
+                    unitCount: Number(item?.unitCount) || 0,
+                }))
+                : [
+                    {
+                        blockName: 'Blok A',
+                        unitCount: Number(property?.totalUnits) || 1,
+                    },
+                ]
+    ),
 });
 
 export const appendPropertyFormData = (formData, imageSlots, options = {}) => {
     const payload = new FormData();
     payload.append('nama_perumahan', formData.name);
     payload.append('harga', formData.price || 0);
+    payload.append('suku_bunga_kpr', formData.kprInterest || 0);
     payload.append('tipe_unit', formData.type || '');
     payload.append('kategori', formData.housingType || 'komersil');
-    payload.append('status_label', formData.status || 'Available');
     payload.append('status_aktif', formData.isActive ? '1' : '0');
     payload.append('jumlah_seluruh_unit', formData.totalUnits || 0);
     payload.append('jumlah_unit_tersedia', formData.availableUnits || 0);
@@ -92,9 +114,23 @@ export const appendPropertyFormData = (formData, imageSlots, options = {}) => {
     payload.append('jumlah_kamar_tidur', formData.bedrooms || '');
     payload.append('jumlah_kamar_mandi', formData.bathrooms || '');
     payload.append('fasilitas', JSON.stringify(formData.facilities || []));
-    payload.append('nama_marketing', formData.marketingName || '');
-    payload.append('whatsapp_marketing', formData.marketingWhatsapp || '');
-    payload.append('block_payload', JSON.stringify(formData.unitBlocks || []));
+    payload.append('marketing_user_id', formData.marketingUserId || '');
+    payload.append('nama_bank_utj', String(formData.bankNameUtj || '').trim());
+    payload.append('no_rekening_utj', String(formData.noRekeningUtj || '').replace(/\D/g, ''));
+    payload.append('block_payload', JSON.stringify(
+        normalizePropertyUnitBlocks(formData.unitBlocks || []).map((block) => ({
+            blockName: block.blockName,
+            unitCount: Number(block.unitCount) || 0,
+            units: (block.units || []).map((unit) => ({
+                id: unit?.id ?? null,
+                unitNumber: Number(unit?.unitNumber) || 0,
+                salesMode: unit?.salesMode || 'ready_stock',
+                estimatedCompletionDate: unit?.salesMode === 'indent'
+                    ? (unit?.estimatedCompletionDate || '')
+                    : '',
+            })),
+        }))
+    ));
 
     const mediaPayload = imageSlots.map((slot) => ({
         index: slot.index,
@@ -114,7 +150,3 @@ export const appendPropertyFormData = (formData, imageSlots, options = {}) => {
 
     return payload;
 };
-
-export const isValidWhatsapp62 = (value) => /^62[0-9]+$/.test(value || '');
-
-export { API_BASE };

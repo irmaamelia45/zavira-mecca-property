@@ -5,7 +5,7 @@ import Badge from '../components/ui/Badge';
 import { Card, CardContent } from '../components/ui/Card';
 import { FiArrowLeft } from 'react-icons/fi';
 import { FiCalendar, FiHome, FiHash } from 'react-icons/fi';
-import { API_BASE } from '../utils/promo';
+import { apiJson } from '../lib/api';
 import { authHeaders, getUserRole } from '../lib/auth';
 
 export default function AccountBooking() {
@@ -17,14 +17,11 @@ export default function AccountBooking() {
     useEffect(() => {
         const fetchBookings = async () => {
             try {
-                const endpoint = isMarketing ? '/api/marketing/bookings' : '/api/bookings/me';
-                const response = await fetch(`${API_BASE}${endpoint}`, {
+                const endpoint = isMarketing ? '/marketing/bookings' : '/bookings/me';
+                const data = await apiJson(endpoint, {
                     headers: authHeaders(),
+                    defaultErrorMessage: 'Gagal memuat riwayat booking.',
                 });
-                if (!response.ok) {
-                    throw new Error('Gagal memuat riwayat booking.');
-                }
-                const data = await response.json();
                 const rawBookings = isMarketing
                     ? (Array.isArray(data?.bookings) ? data.bookings : [])
                     : (Array.isArray(data) ? data : []);

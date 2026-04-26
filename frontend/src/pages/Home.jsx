@@ -5,7 +5,8 @@ import Badge from '../components/ui/Badge';
 import PromoCard from '../components/ui/PromoCard';
 import { FiMapPin, FiHome, FiDroplet, FiShield, FiFileText, FiUsers, FiTrendingUp, FiCheckCircle, FiCalendar, FiPhoneCall, FiArrowUpRight, FiAward, FiChevronLeft, FiChevronRight, FiSearch } from 'react-icons/fi';
 import bgPage from '../assets/bg_page.jpg';
-import { API_BASE, mapPromoFromApi, getPromoPricing as calculatePromoPricing, isPromoActive, resolveImage } from '../utils/promo';
+import { apiJson } from '../lib/api';
+import { mapPromoFromApi, getPromoPricing as calculatePromoPricing, isPromoActive, resolveImage } from '../utils/promo';
 
 const INSIGHT_DUMMY_IMAGES = [
     'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=900&q=80',
@@ -71,11 +72,9 @@ export default function Home() {
             setPropertyLoading(true);
             setPropertyError('');
             try {
-                const response = await fetch(`${API_BASE}/api/perumahan`);
-                if (!response.ok) {
-                    throw new Error('Gagal memuat daftar perumahan.');
-                }
-                const data = await response.json();
+                const data = await apiJson('/perumahan', {
+                    defaultErrorMessage: 'Gagal memuat daftar perumahan.',
+                });
                 setProperties(normalizeListPayload(data));
             } catch (err) {
                 setPropertyError(err.message || 'Gagal memuat daftar perumahan.');
@@ -91,11 +90,9 @@ export default function Home() {
     useEffect(() => {
         const fetchPromos = async () => {
             try {
-                const response = await fetch(`${API_BASE}/api/promos`);
-                if (!response.ok) {
-                    throw new Error('Gagal memuat promo.');
-                }
-                const data = await response.json();
+                const data = await apiJson('/promos', {
+                    defaultErrorMessage: 'Gagal memuat promo.',
+                });
                 setPromos(normalizeListPayload(data).map(mapPromoFromApi));
             } catch (err) {
                 setPromoError(err.message || 'Gagal memuat promo.');
@@ -109,12 +106,7 @@ export default function Home() {
     useEffect(() => {
         const fetchCompanyProfile = async () => {
             try {
-                const response = await fetch(`${API_BASE}/api/company-profile`);
-                if (!response.ok) {
-                    return;
-                }
-
-                const data = await response.json();
+                const data = await apiJson('/company-profile');
                 setCompanyWhatsapp(data?.whatsapp || '');
             } catch {
                 // Silent fail, consultation button will be disabled.
@@ -607,7 +599,7 @@ export default function Home() {
                                             Type {asString(currentCategoryProperty?.type, '-')}
                                         </span>
                                         <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-                                            {asString(currentCategoryProperty?.status, 'Available')}
+                                            {asString(currentCategoryProperty?.status, 'Tersedia')}
                                         </span>
                                     </div>
 
@@ -675,7 +667,7 @@ export default function Home() {
                         <div className="grid xl:grid-cols-[1.15fr_0.85fr] gap-8 xl:gap-10 items-stretch">
                             <div>
                                 <h2 className="text-3xl md:text-4xl font-serif font-semibold text-[#10214b] mb-3">Langkah Cepat Punya Rumah</h2>
-                                <p className="text-gray-600 text-lg">Alur dibuat rapi dan terstruktur agar user bisa mengikuti proses dari awal sampai selesai tanpa kebingungan.</p>
+                                <p className="text-gray-600 text-lg">Proses punya rumah jadi lebih mudah dengan alur yang jelas dan terarah.</p>
 
                                 <div className="mt-8 space-y-4">
                                     {homeJourney.map((item, index) => {

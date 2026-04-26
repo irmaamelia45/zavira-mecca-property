@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\Perumahan;
+use App\Support\PhoneNumber;
 use Illuminate\Http\Request;
 
 class MarketingBookingController extends Controller
@@ -11,6 +13,7 @@ class MarketingBookingController extends Controller
     public function index(Request $request)
     {
         $currentUser = $request->user();
+        $marketingUserId = (int) ($currentUser?->id_user ?? 0);
 
         $validated = $request->validate([
             'status' => 'nullable|string|max:25',
@@ -18,7 +21,12 @@ class MarketingBookingController extends Controller
             'q' => 'nullable|string|max:120',
         ]);
 
-        $query = Booking::query()
+        $marketingScopedQuery = Booking::query()
+            ->whereHas('perumahan', function ($propertyQuery) use ($marketingUserId) {
+                $propertyQuery->where('id_marketing_user', $marketingUserId);
+            });
+
+        $query = (clone $marketingScopedQuery)
             ->with([
                 'user:id_user,nama,email,no_hp',
                 'perumahan:id_perumahan,nama_perumahan,tipe_unit,lokasi,harga',
@@ -35,7 +43,10 @@ class MarketingBookingController extends Controller
 
         if (! empty($validated['q'])) {
             $term = trim((string) $validated['q']);
-            $query->where(function ($builder) use ($term) {
+            $digitTerm = PhoneNumber::digitsOnly($term);
+            $canonicalTerm = PhoneNumber::normalizePhone($term);
+
+            $query->where(function ($builder) use ($term, $digitTerm, $canonicalTerm) {
                 $builder->where('kode_booking', 'like', '%'.$term.'%')
                     ->orWhereHas('user', function ($userQuery) use ($term) {
                         $userQuery
@@ -49,6 +60,18 @@ class MarketingBookingController extends Controller
                             ->orWhere('tipe_unit', 'like', '%'.$term.'%')
                             ->orWhere('lokasi', 'like', '%'.$term.'%');
                     });
+
+                if ($digitTerm !== '') {
+                    $builder->orWhereHas('user', function ($userQuery) use ($digitTerm) {
+                        $userQuery->where('no_hp', 'like', '%'.$digitTerm.'%');
+                    });
+                }
+
+                if ($canonicalTerm) {
+                    $builder->orWhereHas('user', function ($userQuery) use ($canonicalTerm) {
+                        $userQuery->where('no_hp', 'like', '%'.$canonicalTerm.'%');
+                    });
+                }
             });
         }
 
@@ -74,7 +97,7 @@ class MarketingBookingController extends Controller
             ];
         })->values()->all();
 
-        $statusBreakdown = Booking::query()
+        $statusBreakdown = (clone $marketingScopedQuery)
             ->selectRaw('status_booking as status, COUNT(*) as total')
             ->groupBy('status_booking')
             ->orderBy('status_booking')
@@ -86,11 +109,11 @@ class MarketingBookingController extends Controller
             ->values()
             ->all();
 
-        $properties = Booking::query()
-            ->join('perumahan', 'booking.id_perumahan', '=', 'perumahan.id_perumahan')
-            ->select('perumahan.id_perumahan as id', 'perumahan.nama_perumahan as name')
-            ->groupBy('perumahan.id_perumahan', 'perumahan.nama_perumahan')
-            ->orderBy('perumahan.nama_perumahan')
+        $properties = Perumahan::query()
+            ->where('id_marketing_user', $marketingUserId)
+            ->whereHas('bookings')
+            ->select('id_perumahan as id', 'nama_perumahan as name')
+            ->orderBy('nama_perumahan')
             ->get()
             ->map(fn ($row) => [
                 'id' => (int) $row->id,
@@ -99,7 +122,7 @@ class MarketingBookingController extends Controller
             ->values()
             ->all();
 
-        $statuses = Booking::query()
+        $statuses = (clone $marketingScopedQuery)
             ->select('status_booking')
             ->distinct()
             ->orderBy('status_booking')
@@ -114,7 +137,7 @@ class MarketingBookingController extends Controller
                 'role' => $currentUser?->role?->nama_role ?: 'marketing',
             ],
             'summary' => [
-                'total_booking' => (int) Booking::query()->count(),
+                'total_booking' => (int) (clone $marketingScopedQuery)->count(),
                 'status_breakdown' => $statusBreakdown,
             ],
             'filters' => [

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     FaArrowLeft,
+    FaChevronDown,
     FaEdit,
     FaTrash,
     FaMapMarkerAlt,
@@ -9,8 +10,14 @@ import {
     FaHome,
     FaCheckCircle,
     FaClipboardList,
-    FaArrowRight,
 } from 'react-icons/fa';
+import {
+    FiActivity,
+    FiCheckCircle as FiCheckCircleIcon,
+    FiClock,
+    FiFlag,
+    FiXCircle,
+} from 'react-icons/fi';
 import {
     PieChart,
     Pie,
@@ -21,21 +28,80 @@ import {
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { Card, CardContent } from '../../components/ui/Card';
-import { API_BASE } from '../../utils/property';
+import UnitPicker from '../../components/booking/UnitPicker';
 import { authHeaders } from '../../lib/auth';
+import { apiJson, resolveAssetUrl } from '../../lib/api';
+import { formatPhoneForDisplay } from '../../lib/phone';
 
 const STATUS_COLORS = {
     tersedia: '#10b981',
-    terbooking: '#ef4444',
-    prosesBooking: '#f59e0b',
+    terbooking: '#f59e0b',
+    terjual: '#ef4444',
 };
 
 const ACTIVE_BOOKING_STATUSES = ['Menunggu', 'Disetujui'];
 
-const resolveImagePath = (path) => {
-    if (!path || typeof path !== 'string') return '';
-    if (path.startsWith('http')) return path;
-    return `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+const propertyStatusBadgeClass = (property) => {
+    if (!property?.isActive) return 'rounded-full px-3 py-1 border-slate-200 bg-slate-100 text-slate-700';
+    const label = String(property?.status || '').toLowerCase();
+    if (label.includes('sold') || label.includes('terjual')) {
+        return 'rounded-full px-3 py-1 border-rose-200 bg-rose-100 text-rose-700';
+    }
+    return 'rounded-full px-3 py-1 border-emerald-200 bg-emerald-100 text-emerald-700';
+};
+
+const formatMonthYear = (value) => {
+    if (!value) return 'Belum diatur admin';
+    return new Date(value).toLocaleDateString('id-ID', {
+        month: 'long',
+        year: 'numeric',
+    });
+};
+
+const bookingStatusCardMeta = (status) => {
+    const normalized = String(status || '').toLowerCase();
+
+    if (normalized.includes('setuju') || normalized.includes('selesai')) {
+        return {
+            card: 'from-emerald-50 to-white border-emerald-100',
+            iconWrap: 'bg-emerald-100 text-emerald-700',
+            bar: 'bg-emerald-500',
+            Icon: FiCheckCircleIcon,
+        };
+    }
+
+    if (normalized.includes('tolak') || normalized.includes('batal')) {
+        return {
+            card: 'from-rose-50 to-white border-rose-100',
+            iconWrap: 'bg-rose-100 text-rose-700',
+            bar: 'bg-rose-500',
+            Icon: FiXCircle,
+        };
+    }
+
+    if (normalized.includes('tunggu') || normalized.includes('menunggu') || normalized.includes('proses')) {
+        return {
+            card: 'from-amber-50 to-white border-amber-100',
+            iconWrap: 'bg-amber-100 text-amber-700',
+            bar: 'bg-amber-500',
+            Icon: FiClock,
+        };
+    }
+
+    return {
+        card: 'from-sky-50 to-white border-sky-100',
+        iconWrap: 'bg-sky-100 text-sky-700',
+        bar: 'bg-sky-500',
+        Icon: FiFlag,
+    };
+};
+
+const bookingStatusVariant = (status) => {
+    const normalized = String(status || '').toLowerCase();
+    if (normalized.includes('setuju')) return 'success';
+    if (normalized.includes('selesai')) return 'secondary';
+    if (normalized.includes('tolak') || normalized.includes('batal')) return 'destructive';
+    return 'warning';
 };
 
 export default function PropertyDetail() {
@@ -48,19 +114,18 @@ export default function PropertyDetail() {
     const [loadingBookings, setLoadingBookings] = useState(true);
     const [deleting, setDeleting] = useState(false);
     const [error, setError] = useState('');
+    const [selectedUnit, setSelectedUnit] = useState(null);
+    const [showUnitInfo, setShowUnitInfo] = useState(true);
 
     useEffect(() => {
         const fetchProperty = async () => {
             setLoadingProperty(true);
             setError('');
             try {
-                const response = await fetch(`${API_BASE}/api/admin/perumahan/${id}`, {
+                const data = await apiJson(`/admin/perumahan/${id}`, {
                     headers: authHeaders(),
+                    defaultErrorMessage: 'Gagal memuat detail perumahan.',
                 });
-                if (!response.ok) {
-                    throw new Error('Gagal memuat detail perumahan.');
-                }
-                const data = await response.json();
                 setProperty(data);
             } catch (err) {
                 setError(err.message || 'Gagal memuat detail perumahan.');
@@ -72,13 +137,10 @@ export default function PropertyDetail() {
         const fetchBookings = async () => {
             setLoadingBookings(true);
             try {
-                const response = await fetch(`${API_BASE}/api/admin/bookings`, {
+                const data = await apiJson('/admin/bookings', {
                     headers: authHeaders(),
+                    defaultErrorMessage: 'Gagal memuat data booking.',
                 });
-                if (!response.ok) {
-                    throw new Error('Gagal memuat data booking.');
-                }
-                const data = await response.json();
                 setBookings(data || []);
             } catch {
                 setBookings([]);
@@ -91,6 +153,28 @@ export default function PropertyDetail() {
         fetchBookings();
     }, [id]);
 
+    useEffect(() => {
+        if (!selectedUnit?.id) return;
+
+        const latestUnit = (property?.unitBlocks || [])
+            .flatMap((block) => block.units || [])
+            .find((unit) => String(unit.id) === String(selectedUnit.id));
+
+        if (!latestUnit) {
+            setSelectedUnit(null);
+            return;
+        }
+
+        if (
+            latestUnit.status !== selectedUnit.status
+            || latestUnit.salesMode !== selectedUnit.salesMode
+            || latestUnit.estimatedCompletionDate !== selectedUnit.estimatedCompletionDate
+            || latestUnit.code !== selectedUnit.code
+        ) {
+            setSelectedUnit(latestUnit);
+        }
+    }, [property?.unitBlocks, selectedUnit]);
+
     const propertyBookings = useMemo(() => {
         if (!property?.id) return [];
         return (bookings || []).filter((booking) => String(booking?.property?.id) === String(property.id));
@@ -100,18 +184,33 @@ export default function PropertyDetail() {
         const active = propertyBookings.filter((item) => ACTIVE_BOOKING_STATUSES.includes(item.status)).length;
         const approved = propertyBookings.filter((item) => item.status === 'Disetujui').length;
         const pending = propertyBookings.filter((item) => item.status === 'Menunggu' || item.status === 'Menunggu Konfirmasi').length;
+        const completed = propertyBookings.filter((item) => item.status === 'Selesai').length;
+        const rejected = propertyBookings.filter((item) => item.status === 'Ditolak' || item.status === 'Dibatalkan').length;
         return {
             total: propertyBookings.length,
             active,
             approved,
             pending,
+            completed,
+            rejected,
         };
     }, [propertyBookings]);
+
+    const bookingStatusItems = useMemo(() => {
+        const items = [
+            { status: 'Menunggu', total: bookingSummary.pending },
+            { status: 'Disetujui', total: bookingSummary.approved },
+            { status: 'Selesai', total: bookingSummary.completed },
+            { status: 'Ditolak', total: bookingSummary.rejected },
+        ];
+
+        return items.filter((item) => item.total > 0);
+    }, [bookingSummary]);
 
     const unitStatusSummary = useMemo(() => {
         const hasBlocks = Array.isArray(property?.unitBlocks) && property.unitBlocks.length > 0;
         if (hasBlocks) {
-            const counts = { tersedia: 0, terbooking: 0, prosesBooking: 0 };
+            const counts = { tersedia: 0, terbooking: 0, terjual: 0 };
 
             property.unitBlocks.forEach((block) => {
                 (block?.units || []).forEach((unit) => {
@@ -119,14 +218,14 @@ export default function PropertyDetail() {
                     if (status === 'available') {
                         counts.tersedia += 1;
                     } else if (status === 'pending') {
-                        counts.prosesBooking += 1;
-                    } else if (status === 'sold') {
                         counts.terbooking += 1;
+                    } else if (status === 'sold') {
+                        counts.terjual += 1;
                     }
                 });
             });
 
-            const countedTotal = counts.tersedia + counts.terbooking + counts.prosesBooking;
+            const countedTotal = counts.tersedia + counts.terbooking + counts.terjual;
             return {
                 ...counts,
                 total: countedTotal || (Number(property?.totalUnits) || 0),
@@ -135,11 +234,11 @@ export default function PropertyDetail() {
 
         const fallbackTotal = Number(property?.totalUnits) || 0;
         const fallbackAvailable = Number(property?.availableUnits) || 0;
-        const fallbackBooked = Math.max(fallbackTotal - fallbackAvailable, 0);
+        const fallbackSold = Math.max(fallbackTotal - fallbackAvailable, 0);
         return {
             tersedia: fallbackAvailable,
-            terbooking: fallbackBooked,
-            prosesBooking: 0,
+            terbooking: 0,
+            terjual: fallbackSold,
             total: fallbackTotal,
         };
     }, [property?.unitBlocks, property?.totalUnits, property?.availableUnits]);
@@ -147,13 +246,13 @@ export default function PropertyDetail() {
     const totalUnits = unitStatusSummary.total;
     const availableUnits = unitStatusSummary.tersedia;
     const bookedUnits = unitStatusSummary.terbooking;
-    const pendingUnits = unitStatusSummary.prosesBooking;
+    const soldUnits = unitStatusSummary.terjual;
 
     const unitStatusData = useMemo(() => ([
         { name: 'Tersedia', value: availableUnits, color: STATUS_COLORS.tersedia },
         { name: 'Terbooking', value: bookedUnits, color: STATUS_COLORS.terbooking },
-        { name: 'Proses Booking', value: pendingUnits, color: STATUS_COLORS.prosesBooking },
-    ]), [availableUnits, bookedUnits, pendingUnits]);
+        { name: 'Terjual', value: soldUnits, color: STATUS_COLORS.terjual },
+    ]), [availableUnits, bookedUnits, soldUnits]);
 
     const formatMoney = (val) => new Intl.NumberFormat('id-ID', {
         style: 'currency',
@@ -178,14 +277,11 @@ export default function PropertyDetail() {
 
         setDeleting(true);
         try {
-            const response = await fetch(`${API_BASE}/api/admin/perumahan/${property.id}`, {
+            await apiJson(`/admin/perumahan/${property.id}`, {
                 method: 'DELETE',
                 headers: authHeaders(),
+                defaultErrorMessage: 'Gagal menghapus perumahan.',
             });
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({}));
-                throw new Error(data?.message || 'Gagal menghapus perumahan.');
-            }
             alert('Perumahan berhasil dihapus.');
             navigate('/admin/properties');
         } catch (err) {
@@ -210,7 +306,6 @@ export default function PropertyDetail() {
         );
     }
 
-    const activeBookings = propertyBookings.filter((item) => ACTIVE_BOOKING_STATUSES.includes(item.status));
     const detailStatCards = [
         {
             key: 'total',
@@ -224,7 +319,7 @@ export default function PropertyDetail() {
             key: 'available',
             label: 'Unit Tersedia',
             value: availableUnits,
-            desc: 'Stok siap dipasarkan',
+            desc: 'Unit yang dapat dibooking',
             Icon: FaCheckCircle,
             toneClass: 'tone-emerald',
         },
@@ -232,19 +327,21 @@ export default function PropertyDetail() {
             key: 'booked',
             label: 'Unit Terbooking',
             value: bookedUnits,
-            desc: 'Unit sudah terbooking',
+            desc: 'Booking masih dalam proses',
             Icon: FaHome,
             toneClass: 'tone-amber',
         },
         {
-            key: 'active',
-            label: 'Booking Aktif',
-            value: loadingBookings ? '-' : bookingSummary.active,
-            desc: 'Menunggu dan disetujui',
+            key: 'sold',
+            label: 'Unit Terjual',
+            value: soldUnits,
+            desc: 'Unit sudah selesai terjual',
             Icon: FaClipboardList,
-            toneClass: 'tone-sky',
+            toneClass: 'tone-rose',
         },
     ];
+    const selectedUnitIsIndent = selectedUnit?.salesMode === 'indent';
+    const selectedUnitEstimateLabel = formatMonthYear(selectedUnit?.estimatedCompletionDate);
 
     return (
         <div className="admin-page space-y-7 animate-in fade-in duration-500">
@@ -278,8 +375,8 @@ export default function PropertyDetail() {
                         </div>
                     </div>
                     <div className="flex flex-wrap gap-2 mt-4">
-                        <Badge className={property.isActive ? 'rounded-full px-3 py-1 border-emerald-200 bg-emerald-100 text-emerald-700' : 'rounded-full px-3 py-1 border-slate-200 bg-slate-100 text-slate-700'}>
-                            {property.status || (property.isActive ? 'Available' : 'Nonaktif')}
+                        <Badge className={propertyStatusBadgeClass(property)}>
+                            {property.status || 'Tersedia'}
                         </Badge>
                         <Badge className="rounded-full px-3 py-1 border-primary-200 bg-primary-50 text-primary-700">
                             Kategori: {(property.category || '-').toString().toUpperCase()}
@@ -315,7 +412,7 @@ export default function PropertyDetail() {
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between mb-5">
                             <h3 className="text-xl font-semibold text-[#0b1e45]">Status Unit Perumahan</h3>
-                            <span className="text-xs uppercase tracking-[0.1em] text-slate-500">Tersedia / Terbooking / Proses</span>
+                            <span className="text-xs uppercase tracking-[0.1em] text-slate-500">Tersedia / Terbooking / Terjual</span>
                         </div>
                         <div className="h-72 relative max-w-[460px] mx-auto">
                             <ResponsiveContainer width="100%" height="100%">
@@ -356,28 +453,84 @@ export default function PropertyDetail() {
                         </div>
                     </CardContent>
                 </Card>
-
-                <Card className="rounded-2xl border border-[#e7dfd0] bg-white shadow-sm">
-                    <CardContent className="p-6 space-y-4">
-                        <h3 className="text-xl font-semibold text-[#0b1e45]">Ringkasan Booking</h3>
-                        <div className="rounded-xl border border-primary-100 bg-primary-50 px-4 py-4">
-                            <p className="text-sm font-semibold text-primary-700">Booking Aktif</p>
-                            <p className="text-4xl font-bold text-[#0b1e45] mt-1 leading-none">{loadingBookings ? '-' : bookingSummary.active}</p>
-                            <p className="text-xs text-primary-700 mt-2">Status aktif: Menunggu / Disetujui</p>
+                <Card className="border-none shadow-md h-full">
+                    <CardContent className="p-6 md:p-7 h-full flex flex-col">
+                        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-700 to-primary-900 px-5 py-5 text-white">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <p className="text-primary-100 text-sm">Total Booking Perumahan</p>
+                                    <p className="mt-1 text-4xl font-bold tracking-tight">{loadingBookings ? '...' : bookingSummary.total}</p>
+                                    <p className="mt-2 text-sm text-primary-100">Ringkasan booking yang masuk untuk perumahan ini.</p>
+                                </div>
+                                <div className="h-11 w-11 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center text-2xl">
+                                    <FaClipboardList />
+                                </div>
+                            </div>
+                            <div className="mt-5 flex flex-wrap gap-2">
+                                <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium">
+                                    <FiActivity />
+                                    {loadingBookings ? '...' : `${bookingSummary.active} status aktif`}
+                                </span>
+                                <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium">
+                                    {loadingBookings ? '...' : `${bookingSummary.completed} booking selesai`}
+                                </span>
+                                <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium">
+                                    {loadingBookings ? '...' : `${bookingSummary.rejected} booking ditolak`}
+                                </span>
+                            </div>
+                            <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/10" />
+                            <div className="pointer-events-none absolute -left-14 -bottom-14 h-36 w-36 rounded-full bg-white/10" />
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                                <p className="text-xs text-slate-500">Total Booking</p>
-                                <p className="text-2xl font-bold text-[#0b1e45] mt-1">{loadingBookings ? '-' : bookingSummary.total}</p>
-                            </div>
-                            <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                                <p className="text-xs text-slate-500">Disetujui</p>
-                                <p className="text-2xl font-bold text-emerald-700 mt-1">{loadingBookings ? '-' : bookingSummary.approved}</p>
-                            </div>
-                            <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 col-span-2">
-                                <p className="text-xs text-slate-500">Menunggu Konfirmasi</p>
-                                <p className="text-2xl font-bold text-amber-700 mt-1">{loadingBookings ? '-' : bookingSummary.pending}</p>
-                            </div>
+
+                        <div className="mt-5 flex-1">
+                            {loadingBookings ? (
+                                <div className="flex gap-3 overflow-hidden">
+                                    {Array.from({ length: 3 }).map((_, index) => (
+                                        <div key={index} className="min-w-full shrink-0 rounded-xl border border-gray-200 bg-gray-50 p-4 animate-pulse">
+                                            <div className="h-5 w-20 rounded bg-gray-200" />
+                                            <div className="mt-3 h-7 w-14 rounded bg-gray-200" />
+                                            <div className="mt-3 h-2 w-full rounded bg-gray-200" />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : bookingStatusItems.length === 0 ? (
+                                <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-sm text-gray-500 text-center">
+                                    Belum ada booking yang bisa ditampilkan untuk perumahan ini.
+                                </div>
+                            ) : (
+                                <div className="flex gap-3 overflow-x-auto pb-2 pr-1 snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                                    {bookingStatusItems.map((item) => {
+                                        const meta = bookingStatusCardMeta(item.status);
+                                        const percentage = bookingSummary.total > 0
+                                            ? Math.round((item.total / bookingSummary.total) * 100)
+                                            : 0;
+                                        const StatusIcon = meta.Icon;
+
+                                        return (
+                                            <div
+                                                key={item.status}
+                                                className={`min-w-full shrink-0 snap-start rounded-xl border shadow-sm bg-gradient-to-br ${meta.card}`}
+                                            >
+                                                <div className="p-4 md:p-5">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <Badge variant={bookingStatusVariant(item.status)} className="w-fit px-2.5 py-1 text-[11px]">
+                                                            {item.status}
+                                                        </Badge>
+                                                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${meta.iconWrap}`}>
+                                                            <StatusIcon />
+                                                        </div>
+                                                    </div>
+                                                    <p className="mt-3 text-2xl font-bold text-gray-900">{item.total}</p>
+                                                    <p className="text-xs text-gray-500">{percentage}% dari total booking</p>
+                                                    <div className="mt-2.5 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                                                        <div className={`h-full rounded-full ${meta.bar}`} style={{ width: `${Math.max(6, percentage)}%` }} />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -405,32 +558,29 @@ export default function PropertyDetail() {
                                 <p className="font-medium text-slate-800 mt-1">{property.beds || 0} / {property.baths || 0}</p>
                             </div>
                             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                <p className="text-xs text-slate-500">Suku Bunga KPR</p>
+                                <p className="font-medium text-slate-800 mt-1">{property.kprInterest !== null && property.kprInterest !== undefined ? `${Number(property.kprInterest).toFixed(2)}%` : '-'}</p>
+                            </div>
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                                 <p className="text-xs text-slate-500">Marketing</p>
                                 <p className="font-medium text-slate-800 mt-1">{property.marketingName || '-'}</p>
                             </div>
                             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                                 <p className="text-xs text-slate-500">WhatsApp Marketing</p>
-                                <p className="font-medium text-slate-800 mt-1">{property.marketingWhatsapp ? `+${property.marketingWhatsapp}` : '-'}</p>
+                                <p className="font-medium text-slate-800 mt-1">{formatPhoneForDisplay(property.marketingWhatsapp) || '-'}</p>
+                            </div>
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                <p className="text-xs text-slate-500">Bank Tujuan UTJ</p>
+                                <p className="font-medium text-slate-800 mt-1">{property.bankNameUtj || '-'}</p>
+                            </div>
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                <p className="text-xs text-slate-500">No. Rekening Tujuan UTJ</p>
+                                <p className="font-medium text-slate-800 mt-1">{property.noRekeningUtj || '-'}</p>
                             </div>
                         </div>
                         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                             <p className="text-xs text-slate-500 mb-1">Deskripsi</p>
                             <p className="text-sm text-slate-700 leading-relaxed">{property.description || '-'}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-slate-500 mb-2">Fasilitas</p>
-                            <div className="flex flex-wrap gap-2">
-                                {(property.facilities || []).length ? (
-                                    property.facilities.map((facility) => (
-                                        <span key={facility} className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700">
-                                            <FaTag className="mr-1 text-primary-500" />
-                                            {facility}
-                                        </span>
-                                    ))
-                                ) : (
-                                    <span className="text-sm text-slate-500">Belum ada fasilitas.</span>
-                                )}
-                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -440,9 +590,9 @@ export default function PropertyDetail() {
                         <h3 className="text-xl font-semibold text-[#0b1e45]">Foto Perumahan</h3>
                         {(property.images || []).length ? (
                             <div className="grid grid-cols-2 gap-3">
-                                {property.images.slice(0, 4).map((image, index) => (
+                                {property.images.slice(0, 5).map((image, index) => (
                                     <div key={`${image}-${index}`} className="aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-                                        <img src={resolveImagePath(image)} alt={`${property.name} ${index + 1}`} className="h-full w-full object-cover" />
+                                        <img src={resolveAssetUrl(image)} alt={`${property.name} ${index + 1}`} className="h-full w-full object-cover" />
                                     </div>
                                 ))}
                             </div>
@@ -465,62 +615,60 @@ export default function PropertyDetail() {
                 </Card>
             </div>
 
-            <Card className="rounded-2xl border border-[#e7dfd0] bg-white shadow-sm overflow-hidden">
-                <CardContent className="p-0">
-                    <div className="px-5 py-4 border-b border-slate-200 bg-white">
-                        <h3 className="text-xl font-semibold text-[#0b1e45] flex items-center gap-2">
-                            <FaClipboardList className="text-primary-600" /> Booking Aktif Pada Perumahan Ini
-                        </h3>
+            <Card className="rounded-2xl border border-[#e7dfd0] bg-white shadow-sm">
+                <CardContent className="p-6 space-y-5">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="space-y-2">
+                            <h3 className="text-xl font-semibold text-[#0b1e45]">Informasi Unit Per Blok</h3>
+                            <p className="text-sm text-slate-500">
+                                Tampilan unit di halaman admin disamakan dengan yang dilihat user. Untuk mengubah unit, gunakan halaman edit perumahan.
+                            </p>
+                        </div>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full sm:w-auto"
+                            onClick={() => setShowUnitInfo((prev) => !prev)}
+                        >
+                            {showUnitInfo ? 'Sembunyikan' : 'Tampilkan'}
+                            <FaChevronDown className={`ml-2 transition-transform ${showUnitInfo ? 'rotate-180' : ''}`} />
+                        </Button>
                     </div>
-                    <div className="overflow-x-auto responsive-table-wrap">
-                        <table className="admin-table w-full text-[13px] text-left min-w-[860px]">
-                            <thead className="font-semibold uppercase text-[10px] tracking-[0.06em]">
-                                <tr>
-                                    <th className="px-6 py-4 !bg-primary-700 !text-white">Kode Booking</th>
-                                    <th className="px-6 py-4 !bg-primary-700 !text-white">Nama Pemesan</th>
-                                    <th className="px-6 py-4 !bg-primary-700 !text-white">Tanggal</th>
-                                    <th className="px-6 py-4 !bg-primary-700 !text-white">Status</th>
-                                    <th className="px-6 py-4 text-center !bg-primary-700 !text-white">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {loadingBookings ? (
-                                    <tr>
-                                        <td className="px-6 py-8 text-gray-500" colSpan="5">Memuat data booking...</td>
-                                    </tr>
-                                ) : activeBookings.length === 0 ? (
-                                    <tr>
-                                        <td className="px-6 py-8 text-gray-500" colSpan="5">Belum ada booking aktif untuk perumahan ini.</td>
-                                    </tr>
-                                ) : (
-                                    activeBookings.map((booking) => (
-                                        <tr key={booking.id} className="hover:bg-slate-50/70 transition-colors">
-                                            <td className="px-6 py-5 font-medium text-gray-700">{booking.code || '-'}</td>
-                                            <td className="px-6 py-5 text-gray-900 font-medium">{booking.user?.name || '-'}</td>
-                                            <td className="px-6 py-5 text-gray-500">{formatDate(booking.date)}</td>
-                                            <td className="px-6 py-5">
-                                                <Badge variant={booking.status === 'Disetujui' ? 'success' : 'warning'}>
-                                                    {booking.status}
-                                                </Badge>
-                                            </td>
-                                            <td className="px-6 py-5 text-center">
-                                                <Button
-                                                    variant="primary"
-                                                    size="sm"
-                                                    className="h-9 px-4 rounded-lg text-[11px] font-semibold shadow-sm hover:shadow-md"
-                                                    onClick={() => navigate(`/admin/bookings/${booking.id}`)}
-                                                >
-                                                    Lihat Booking <FaArrowRight className="ml-2 text-xs" />
-                                                </Button>
-                                            </td>
-                                        </tr>
-                                    ))
+
+                    {showUnitInfo ? (
+                        Array.isArray(property.unitBlocks) && property.unitBlocks.length > 0 ? (
+                            <div className="space-y-4">
+                                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                    <UnitPicker
+                                        unitBlocks={property.unitBlocks || []}
+                                        selectedUnitId={selectedUnit?.id}
+                                        onSelect={setSelectedUnit}
+                                        title="Lihat blok dan unit rumah"
+                                        helperText="Informasi blok dan unit di halaman admin mengikuti tampilan yang sama seperti di halaman user."
+                                    />
+                                </div>
+
+                                {selectedUnitIsIndent && (
+                                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                        <p className="font-semibold">Unit ini masih dalam tahap pembangunan (Indent).</p>
+                                        <p className="mt-1">Estimasi selesai: {selectedUnitEstimateLabel}</p>
+                                    </div>
                                 )}
-                            </tbody>
-                        </table>
-                    </div>
+                            </div>
+                        ) : (
+                            <div className="rounded-xl border border-dashed border-slate-300 px-4 py-5 text-sm text-slate-500">
+                                Data unit belum tersedia untuk perumahan ini.
+                            </div>
+                        )
+                    ) : (
+                        <div className="rounded-xl border border-dashed border-slate-300 px-4 py-5 text-sm text-slate-500">
+                            Informasi unit sedang disembunyikan. Klik tombol <span className="font-medium text-slate-700">Tampilkan</span> untuk melihatnya kembali.
+                        </div>
+                    )}
                 </CardContent>
             </Card>
+
         </div>
     );
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\PhoneNumber;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
@@ -17,7 +18,7 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $request->merge([
-            'no_hp' => $this->normalizePhone62((string) $request->input('no_hp')),
+            'no_hp' => $this->normalizePhoneForValidation($request->input('no_hp')),
         ]);
 
         $validated = $request->validate([
@@ -29,7 +30,8 @@ class AuthController extends Controller
             'device_name' => 'nullable|string|max:100',
         ], [
             'email.regex' => 'Email harus menggunakan domain @gmail.com.',
-            'no_hp.regex' => 'Nomor HP harus menggunakan format 62xxxx.',
+            'no_hp.required' => 'Nomor HP wajib diisi.',
+            'no_hp.regex' => 'Nomor HP tidak valid. Gunakan format 08xxxxxxxxxx.',
         ]);
 
         $userRole = Role::query()->where('nama_role', 'user')->first();
@@ -112,7 +114,7 @@ class AuthController extends Controller
         $user = $request->user();
 
         $request->merge([
-            'no_hp' => $this->normalizePhone62((string) $request->input('no_hp')),
+            'no_hp' => $this->normalizePhoneForValidation($request->input('no_hp')),
         ]);
 
         $validated = $request->validate([
@@ -122,7 +124,8 @@ class AuthController extends Controller
             'alamat' => 'nullable|string|max:255',
         ], [
             'email.regex' => 'Email harus menggunakan domain @gmail.com.',
-            'no_hp.regex' => 'Nomor HP harus menggunakan format 62xxxx.',
+            'no_hp.required' => 'Nomor HP wajib diisi.',
+            'no_hp.regex' => 'Nomor HP tidak valid. Gunakan format 08xxxxxxxxxx.',
         ]);
 
         $user->update($validated);
@@ -178,29 +181,15 @@ class AuthController extends Controller
         ];
     }
 
-    private function normalizePhone62(string $phone): string
+    private function normalizePhoneForValidation(mixed $input): string
     {
-        $digits = preg_replace('/\D+/', '', $phone) ?? '';
-        if ($digits === '') {
-            return '';
+        $raw = is_string($input) ? $input : '';
+        $normalized = PhoneNumber::normalizePhone($raw);
+
+        if ($normalized) {
+            return $normalized;
         }
 
-        $digits = preg_replace('/^00+/', '', $digits) ?? $digits;
-
-        if (str_starts_with($digits, '62')) {
-            $localPart = preg_replace('/^0+/', '', substr($digits, 2)) ?? substr($digits, 2);
-            return '62'.$localPart;
-        }
-
-        if (str_starts_with($digits, '0')) {
-            $localPart = preg_replace('/^0+/', '', $digits) ?? $digits;
-            return '62'.$localPart;
-        }
-
-        if (str_starts_with($digits, '8')) {
-            return '62'.$digits;
-        }
-
-        return '62'.preg_replace('/^62/', '', $digits);
+        return PhoneNumber::digitsOnly($raw);
     }
 }

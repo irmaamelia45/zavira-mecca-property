@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { Card, CardContent } from '../../components/ui/Card';
+import TableSlidePagination from '../../components/admin/TableSlidePagination';
 import { FaPlus, FaSearch, FaSlidersH, FaMapMarkerAlt, FaHome, FaBuilding, FaChevronDown, FaChevronUp, FaCheck } from 'react-icons/fa';
-import { API_BASE } from '../../utils/property';
+import { apiJson } from '../../lib/api';
 import { authHeaders } from '../../lib/auth';
+import useTableSlidePagination from '../../hooks/useTableSlidePagination';
 
 const STATUS_FILTER_OPTIONS = [
     { value: 'all', label: 'All' },
@@ -41,13 +43,10 @@ export default function PropertyManagement() {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`${API_BASE}/api/admin/perumahan`, {
+            const data = await apiJson('/admin/perumahan', {
                 headers: authHeaders(),
+                defaultErrorMessage: 'Gagal memuat data perumahan.',
             });
-            if (!response.ok) {
-                throw new Error('Gagal memuat data perumahan.');
-            }
-            const data = await response.json();
             setProperties(data || []);
         } catch (err) {
             setError(err.message || 'Gagal memuat data perumahan.');
@@ -140,6 +139,21 @@ export default function PropertyManagement() {
         });
     }, [properties, search, categoryFilter, statusFilter, sortBy]);
 
+    const {
+        currentPage,
+        totalPages,
+        paginatedRows: paginatedProperties,
+        rangeStart,
+        rangeEnd,
+        canPrevious,
+        canNext,
+        goPrevious,
+        goNext,
+    } = useTableSlidePagination(filtered, {
+        rowsPerPage: 10,
+        resetDeps: [search, categoryFilter, statusFilter, sortBy],
+    });
+
     const summary = useMemo(() => {
         const total = properties.length;
         const totalSubsidi = properties.filter(
@@ -194,7 +208,7 @@ export default function PropertyManagement() {
         if (!prop.isActive) return 'bg-gray-100 text-gray-700 border-gray-200';
         const label = (prop.status || '').toString().toLowerCase();
         if (label.includes('coming')) return 'bg-amber-100 text-amber-700 border-amber-200';
-        if (label.includes('sold')) return 'bg-rose-100 text-rose-700 border-rose-200';
+        if (label.includes('sold') || label.includes('terjual')) return 'bg-rose-100 text-rose-700 border-rose-200';
         return 'bg-emerald-100 text-emerald-700 border-emerald-200';
     };
 
@@ -395,7 +409,7 @@ export default function PropertyManagement() {
                                         <td className="px-6 py-10 text-gray-500" colSpan="7">Data tidak ditemukan. Coba ubah kata kunci atau filter.</td>
                                     </tr>
                                 ) : (
-                                    filtered.map((prop) => {
+                                    paginatedProperties.map((prop) => {
                                         const available = Number(prop.availableUnits) || 0;
                                         const total = Math.max(Number(prop.totalUnits) || 0, 1);
                                         const stockPercent = Math.max(0, Math.min(100, Math.round((available / total) * 100)));
@@ -436,7 +450,7 @@ export default function PropertyManagement() {
                                                 </td>
                                                 <td className="px-6 py-5">
                                                     <Badge className={`rounded-full px-3 py-1 text-xs ${statusBadgeClass(prop)}`}>
-                                                        {prop.status || (prop.isActive ? 'Available' : 'Nonaktif')}
+                                                        {prop.status || 'Tersedia'}
                                                     </Badge>
                                                 </td>
                                                 <td className="px-6 py-5">
@@ -458,6 +472,22 @@ export default function PropertyManagement() {
                             </tbody>
                         </table>
                     </div>
+                    {!loading && (
+                        <div className="border-t border-slate-100 p-4">
+                            <TableSlidePagination
+                                rangeStart={rangeStart}
+                                rangeEnd={rangeEnd}
+                                totalItems={filtered.length}
+                                totalPages={totalPages}
+                                currentPage={currentPage}
+                                itemLabel="data"
+                                canPrevious={canPrevious}
+                                canNext={canNext}
+                                onPrevious={goPrevious}
+                                onNext={goNext}
+                            />
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>

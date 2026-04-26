@@ -4,7 +4,8 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { Card, CardContent } from '../components/ui/Card';
 import { FaArrowLeft, FaClock, FaTag } from 'react-icons/fa';
-import { fetchJsonWithFallback, mapPromoFromApi, normalizeApiItemPayload, normalizeApiListPayload } from '../utils/promo';
+import { apiJson } from '../lib/api';
+import { mapPromoFromApi, normalizeApiItemPayload, normalizeApiListPayload } from '../utils/promo';
 
 export default function PromoDetail() {
     const { id } = useParams();
@@ -18,10 +19,10 @@ export default function PromoDetail() {
                 let data = null;
 
                 try {
-                    data = await fetchJsonWithFallback(`/api/promos/${id}`);
+                    data = await apiJson(`/promos/${id}`);
                 } catch {
                     // Fallback when detail endpoint is unavailable in some environments.
-                    const listData = await fetchJsonWithFallback('/api/promos');
+                    const listData = await apiJson('/promos');
                     const list = normalizeApiListPayload(listData);
                     const matched = list.find((item) => String(item?.id ?? item?.id_promo) === String(id));
                     if (!matched) {

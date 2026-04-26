@@ -5,7 +5,7 @@ import { FiActivity, FiCheckCircle, FiClock, FiFlag, FiSearch, FiXCircle } from 
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { Card, CardContent } from '../components/ui/Card';
-import { fetchJsonWithFallback } from '../utils/promo';
+import { apiJson } from '../lib/api';
 import { authHeaders, getStoredUser } from '../lib/auth';
 
 const statusBadgeVariant = (status) => {
@@ -108,10 +108,10 @@ export default function MarketingDashboard() {
 
             try {
                 const endpoint = queryString
-                    ? `/api/marketing/bookings?${queryString}`
-                    : '/api/marketing/bookings';
+                    ? `/marketing/bookings?${queryString}`
+                    : '/marketing/bookings';
 
-                const data = await fetchJsonWithFallback(endpoint, {
+                const data = await apiJson(endpoint, {
                     headers: authHeaders(),
                 });
 

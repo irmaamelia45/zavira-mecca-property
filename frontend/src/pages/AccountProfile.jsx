@@ -4,9 +4,9 @@ import { Card, CardContent } from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import { FiArrowLeft } from 'react-icons/fi';
-import { API_BASE } from '../utils/promo';
+import { apiJson } from '../lib/api';
 import { authHeaders, getStoredUser, saveAuth } from '../lib/auth';
-import { normalizePhone62 } from '../lib/phone';
+import { formatPhoneForDisplay, normalizePhone } from '../lib/phone';
 
 const initialProfile = {
     nama: '',
@@ -34,25 +34,22 @@ export default function AccountProfile() {
             setProfile({
                 nama: localUser.nama || '',
                 email: localUser.email || '',
-                no_hp: normalizePhone62(localUser.no_hp || ''),
+                no_hp: formatPhoneForDisplay(localUser.no_hp || ''),
                 alamat: localUser.alamat || '',
             });
         }
 
         const fetchProfile = async () => {
             try {
-                const response = await fetch(`${API_BASE}/api/auth/me`, {
+                const data = await apiJson('/auth/me', {
                     headers: authHeaders(),
+                    defaultErrorMessage: 'Gagal memuat profil user.',
                 });
-                if (!response.ok) {
-                    throw new Error('Gagal memuat profil user.');
-                }
-                const data = await response.json();
                 if (data?.user) {
                     setProfile({
                         nama: data.user.nama || '',
                         email: data.user.email || '',
-                        no_hp: normalizePhone62(data.user.no_hp || ''),
+                        no_hp: formatPhoneForDisplay(data.user.no_hp || ''),
                         alamat: data.user.alamat || '',
                     });
                     saveAuth({ token: undefined, user: data.user });
@@ -74,21 +71,17 @@ export default function AccountProfile() {
         setError('');
 
         try {
-            const response = await fetch(`${API_BASE}/api/auth/profile`, {
+            const data = await apiJson('/auth/profile', {
                 method: 'PUT',
                 headers: authHeaders({
                     'Content-Type': 'application/json',
                 }),
                 body: JSON.stringify({
                     ...profile,
-                    no_hp: normalizePhone62(profile.no_hp),
+                    no_hp: normalizePhone(profile.no_hp),
                 }),
+                defaultErrorMessage: 'Gagal memperbarui profil.',
             });
-
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(data?.message || 'Gagal memperbarui profil.');
-            }
 
             if (data?.user) {
                 saveAuth({ token: undefined, user: data.user });
@@ -108,17 +101,14 @@ export default function AccountProfile() {
         setError('');
 
         try {
-            const response = await fetch(`${API_BASE}/api/auth/password`, {
+            const data = await apiJson('/auth/password', {
                 method: 'PUT',
                 headers: authHeaders({
                     'Content-Type': 'application/json',
                 }),
                 body: JSON.stringify(passwordForm),
+                defaultErrorMessage: 'Gagal mengubah password.',
             });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(data?.message || 'Gagal mengubah password.');
-            }
 
             setPasswordForm({
                 current_password: '',
@@ -169,9 +159,9 @@ export default function AccountProfile() {
                         />
                         <Input
                             label="No. WhatsApp"
-                            placeholder="628xxxxxxxxxx"
+                            placeholder="08xxxxxxxxxx"
                             value={profile.no_hp}
-                            onChange={(e) => setProfile((prev) => ({ ...prev, no_hp: normalizePhone62(e.target.value) }))}
+                            onChange={(e) => setProfile((prev) => ({ ...prev, no_hp: formatPhoneForDisplay(normalizePhone(e.target.value)) }))}
                             required
                         />
                         <Input

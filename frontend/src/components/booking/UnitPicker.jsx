@@ -6,11 +6,11 @@ const STATUS_STYLE = {
         className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     },
     pending: {
-        label: 'Pending',
+        label: 'Terbooking',
         className: 'border-amber-200 bg-amber-50 text-amber-700',
     },
     sold: {
-        label: 'Terbooking',
+        label: 'Terjual',
         className: 'border-rose-200 bg-rose-50 text-rose-700',
     },
 };
@@ -21,6 +21,10 @@ const resolveStatus = (status) => {
     return 'available';
 };
 
+const resolveSalesModeLabel = (salesMode) => (
+    salesMode === 'indent' ? 'Indent' : 'Ready Stock'
+);
+
 export default function UnitPicker({
     unitBlocks = [],
     selectedUnitId = null,
@@ -29,7 +33,7 @@ export default function UnitPicker({
     error = '',
     validationError = '',
     title = 'Silakan pilih blok terlebih dahulu sebelum booking',
-    helperText = 'Pilih satu unit yang masih tersedia. Unit kuning/merah tidak bisa dipilih.',
+    helperText = 'Pilih satu unit yang masih tersedia. Unit kuning terbooking dan unit merah sudah terjual.',
 }) {
     return (
         <div className="space-y-2.5">
@@ -37,6 +41,7 @@ export default function UnitPicker({
                 <div>
                     <h3 className="text-base font-bold text-gray-900">{title}</h3>
                     <p className="text-xs text-gray-500">{helperText}</p>
+                    <p className="text-[11px] text-amber-700 mt-1">Unit indent tetap bisa dibooking dan akan menampilkan estimasi selesai saat dipilih.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
                     {Object.entries(STATUS_STYLE).map(([key, item]) => (
@@ -69,6 +74,8 @@ export default function UnitPicker({
                                     const statusStyle = STATUS_STYLE[normalizedStatus];
                                     const isDisabled = normalizedStatus !== 'available';
                                     const isSelected = String(unit.id) === String(selectedUnitId);
+                                    const isIndent = unit.salesMode === 'indent';
+                                    const modeLabel = resolveSalesModeLabel(unit.salesMode);
 
                                     return (
                                         <button
@@ -76,14 +83,25 @@ export default function UnitPicker({
                                             type="button"
                                             onClick={() => !isDisabled && onSelect?.(unit)}
                                             disabled={isDisabled}
-                                            title={statusStyle.label}
-                                            className={`h-8 rounded border text-xs font-semibold transition-all ${
+                                            title={`${statusStyle.label}${isIndent ? ` - ${modeLabel}` : ''}`}
+                                            className={`relative h-8 rounded border text-xs font-semibold transition-all ${
                                                 isSelected
                                                     ? 'border-primary-500 bg-primary-600 text-white shadow-[0_0_0_1px_rgba(16,33,75,0.18)]'
                                                     : statusStyle.className
-                                            } ${isDisabled ? 'cursor-not-allowed opacity-80' : 'hover:-translate-y-0.5'}`}
+                                            } ${isDisabled ? 'cursor-not-allowed opacity-80' : 'hover:-translate-y-0.5'} ${
+                                                isIndent && !isSelected && normalizedStatus === 'available' ? 'border-dashed' : ''
+                                            }`}
                                         >
                                             {unit.code}
+                                            {isIndent && (
+                                                <span className={`absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full border px-1 text-[9px] font-bold leading-none ${
+                                                    isSelected
+                                                        ? 'border-primary-100 bg-white text-primary-700'
+                                                        : 'border-amber-200 bg-amber-100 text-amber-700'
+                                                }`}>
+                                                    I
+                                                </span>
+                                            )}
                                         </button>
                                     );
                                 })}

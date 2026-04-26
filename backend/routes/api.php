@@ -1,15 +1,19 @@
 <?php
 
-use App\Http\Controllers\Api\KprInfoController;
-use App\Http\Controllers\Api\CompanyProfileController;
-use App\Http\Controllers\Api\PromoController;
-use App\Http\Controllers\Api\PerumahanController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Auth\NewPasswordController;
+use App\Http\Controllers\Api\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AdminUserController;
+use App\Http\Controllers\Api\CompanyProfileController;
+use App\Http\Controllers\Api\KprInfoController;
 use App\Http\Controllers\Api\MarketingDashboardController;
 use App\Http\Controllers\Api\MarketingBookingController;
+use App\Http\Controllers\Api\PerumahanController;
+use App\Http\Controllers\Api\PromoController;
+use App\Http\Controllers\Api\TemplateSuratController;
+use App\Http\Controllers\Api\WhatsappNotifLogController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/kpr-contents', [KprInfoController::class, 'index']);
@@ -27,6 +31,8 @@ Route::get('/promos/{id}', [PromoController::class, 'show']);
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
+    Route::middleware(['guest', 'throttle:5,1'])->post('/forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
+    Route::middleware(['guest', 'throttle:10,1'])->post('/reset-password', [NewPasswordController::class, 'store'])->name('password.update');
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -46,18 +52,23 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:admin,superadmin')->group(function () {
         Route::get('/admin/dashboard/summary', [AdminDashboardController::class, 'summary']);
+        Route::get('/admin/dashboard/stats', [AdminDashboardController::class, 'stats']);
         Route::get('/admin/users/marketing', [AdminUserController::class, 'indexMarketing']);
         Route::post('/admin/users/marketing', [AdminUserController::class, 'storeMarketing']);
+        Route::patch('/admin/users/marketing/{id}/status', [AdminUserController::class, 'updateMarketingStatus']);
         Route::delete('/admin/users/marketing/{id}', [AdminUserController::class, 'destroyMarketing']);
 
         Route::get('/admin/bookings', [BookingController::class, 'indexAdmin']);
         Route::get('/admin/bookings/{id}', [BookingController::class, 'showAdmin']);
         Route::patch('/admin/bookings/{id}/status', [BookingController::class, 'updateStatusAdmin']);
+        Route::get('/admin/whatsapp-logs', [WhatsappNotifLogController::class, 'index']);
+        Route::get('/admin/whatsapp-logs/{id}', [WhatsappNotifLogController::class, 'show']);
 
         Route::get('/admin/perumahan', [PerumahanController::class, 'indexAdmin']);
         Route::get('/admin/perumahan/options', [PerumahanController::class, 'optionsAdmin']);
         Route::get('/admin/perumahan/{id}', [PerumahanController::class, 'showAdmin']);
         Route::post('/admin/perumahan', [PerumahanController::class, 'store']);
+        Route::patch('/admin/perumahan/{id}/units/{unitId}', [PerumahanController::class, 'updateUnitAdmin']);
         Route::put('/admin/perumahan/{id}', [PerumahanController::class, 'update']);
         Route::post('/admin/perumahan/{id}', [PerumahanController::class, 'update']);
         Route::delete('/admin/perumahan/{id}', [PerumahanController::class, 'destroy']);
@@ -73,6 +84,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/promos/{id}', [PromoController::class, 'update']);
         Route::post('/promos/{id}', [PromoController::class, 'update']);
         Route::delete('/promos/{id}', [PromoController::class, 'destroy']);
+
+        Route::get('/admin/template-surat', [TemplateSuratController::class, 'index']);
+        Route::get('/admin/template-surat/{id}', [TemplateSuratController::class, 'show']);
+        Route::post('/admin/template-surat', [TemplateSuratController::class, 'store']);
+        Route::put('/admin/template-surat/{id}', [TemplateSuratController::class, 'update']);
+        Route::delete('/admin/template-surat/{id}', [TemplateSuratController::class, 'destroy']);
     });
 
     Route::middleware('role:superadmin')->group(function () {

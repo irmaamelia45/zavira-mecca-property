@@ -4,7 +4,8 @@ import Button from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import { FiArrowUpRight, FiCheck, FiChevronDown, FiMapPin, FiSearch, FiSliders } from 'react-icons/fi';
-import { API_BASE, mapPromoFromApi, getPromoPricing as calculatePromoPricing, resolveImage } from '../utils/promo';
+import { apiJson } from '../lib/api';
+import { mapPromoFromApi, getPromoPricing as calculatePromoPricing, resolveImage } from '../utils/promo';
 
 const normalizeListPayload = (payload) => {
     if (Array.isArray(payload)) return payload.filter((item) => item && typeof item === 'object');
@@ -44,7 +45,7 @@ const getCategoryBadgeClass = (category) => {
 const getStatusBadgeClass = (status) => {
     const key = String(status || '').toLowerCase();
     if (key.includes('coming')) return 'bg-amber-50/95 text-amber-700 border-amber-200';
-    if (key.includes('sold')) return 'bg-rose-50/95 text-rose-700 border-rose-200';
+    if (key.includes('sold') || key.includes('terjual')) return 'bg-rose-50/95 text-rose-700 border-rose-200';
     return 'bg-emerald-50/95 text-emerald-700 border-emerald-200';
 };
 
@@ -68,11 +69,9 @@ export default function HousingList() {
             setLoading(true);
             setError('');
             try {
-                const response = await fetch(`${API_BASE}/api/perumahan`);
-                if (!response.ok) {
-                    throw new Error('Gagal memuat daftar perumahan.');
-                }
-                const data = await response.json();
+                const data = await apiJson('/perumahan', {
+                    defaultErrorMessage: 'Gagal memuat daftar perumahan.',
+                });
                 setProperties(normalizeListPayload(data));
             } catch (err) {
                 setError(err.message || 'Gagal memuat daftar perumahan.');
@@ -88,11 +87,9 @@ export default function HousingList() {
     useEffect(() => {
         const fetchPromos = async () => {
             try {
-                const response = await fetch(`${API_BASE}/api/promos`);
-                if (!response.ok) {
-                    throw new Error('Gagal memuat promo.');
-                }
-                const data = await response.json();
+                const data = await apiJson('/promos', {
+                    defaultErrorMessage: 'Gagal memuat promo.',
+                });
                 setPromos(normalizeListPayload(data).map(mapPromoFromApi));
             } catch {
                 // Silent fail for promo pricing.
@@ -291,7 +288,7 @@ export default function HousingList() {
                         const promoPricing = getPromoPricing(prop.id, basePrice);
                         const finalPrice = Math.max(0, basePrice - promoPricing.discount);
                         const mainImage = prop.image ? resolveImage(prop.image) : '';
-                        const statusLabel = String(prop.status || 'Available');
+                        const statusLabel = String(prop.status || 'Tersedia');
                         const availableUnits = Number(prop.availableUnits) || 0;
 
                         return (

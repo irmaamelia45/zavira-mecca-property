@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Perumahan;
 use App\Models\PerumahanMedia;
 use App\Models\PerumahanUnit;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -212,6 +213,60 @@ class PerumahanController extends Controller
         ]);
     }
 
+    public function updateUnitAdmin(Request $request, $id, $unitId)
+    {
+        $property = Perumahan::query()->find($id);
+        if (! $property) {
+            return response()->json(['message' => 'Perumahan tidak ditemukan.'], 404);
+        }
+
+        $validated = $request->validate([
+            'sales_mode' => 'required|string|in:ready_stock,indent',
+            'estimated_completion_date' => 'nullable|date',
+        ], [
+            'sales_mode.required' => 'Mode penjualan unit wajib dipilih.',
+            'sales_mode.in' => 'Mode penjualan unit tidak valid.',
+            'estimated_completion_date.date' => 'Estimasi selesai harus berupa tanggal yang valid.',
+        ]);
+
+        if (($validated['sales_mode'] ?? 'ready_stock') === 'indent' && empty($validated['estimated_completion_date'])) {
+            throw ValidationException::withMessages([
+                'estimated_completion_date' => ['Estimasi selesai wajib diisi untuk unit indent.'],
+            ]);
+        }
+
+        $property = DB::transaction(function () use ($property, $unitId, $validated) {
+            $unit = PerumahanUnit::query()
+                ->where('id_unit_perumahan', $unitId)
+                ->where('id_perumahan', $property->id_perumahan)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $unit) {
+                throw new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException('Unit tidak ditemukan pada perumahan ini.');
+            }
+
+            $unit->update([
+                'sales_mode' => $validated['sales_mode'],
+                'estimated_completion_date' => $validated['sales_mode'] === 'indent'
+                    ? $validated['estimated_completion_date']
+                    : null,
+            ]);
+
+            return $property->fresh([
+                'media' => fn ($q) => $q->orderBy('urutan'),
+                'units' => fn ($q) => $q
+                    ->orderBy('kode_blok')
+                    ->orderBy('nomor_unit'),
+            ]);
+        });
+
+        return response()->json([
+            'message' => 'Pengaturan unit berhasil diperbarui.',
+            'property' => $this->transformForAdmin($property, true),
+        ]);
+    }
+
     public function destroy($id)
     {
         $property = Perumahan::query()->find($id);
@@ -244,12 +299,12 @@ class PerumahanController extends Controller
 
     private function validatePayload(Request $request): array
     {
-        return $request->validate([
+        $validated = $request->validate([
             'nama_perumahan' => 'required|string|max:150',
             'harga' => 'required|numeric|min:0',
+            'suku_bunga_kpr' => 'required|numeric|min:0|max:100',
             'tipe_unit' => 'nullable|string|max:30',
             'kategori' => 'nullable|string|max:30',
-            'status_label' => 'nullable|string|max:30',
             'jumlah_seluruh_unit' => 'required|integer|min:0',
             'jumlah_unit_tersedia' => 'required|integer|min:0',
             'deskripsi' => 'nullable|string',
@@ -262,14 +317,59 @@ class PerumahanController extends Controller
             'jumlah_kamar_tidur' => 'nullable|integer|min:0',
             'jumlah_kamar_mandi' => 'nullable|integer|min:0',
             'fasilitas' => 'nullable|string',
-            'nama_marketing' => 'required|string|max:120',
-            'whatsapp_marketing' => 'required|string|regex:/^62[0-9]+$/|max:25',
+            'marketing_user_id' => 'required|integer|exists:user,id_user',
+            'nama_bank_utj' => 'required|string|max:120',
+            'no_rekening_utj' => 'required|string|max:50|regex:/^[0-9]+$/',
             'status_aktif' => 'nullable|boolean',
             'block_payload' => 'nullable|string',
             'media_payload' => 'nullable|string',
-            'photos' => 'nullable|array|max:4',
+            'photos' => 'nullable|array|max:5',
             'photos.*' => 'nullable|image|max:5120',
+        ], [
+            'marketing_user_id.required' => 'Marketing wajib dipilih dari akun yang terdaftar.',
+            'marketing_user_id.exists' => 'Marketing yang dipilih tidak ditemukan.',
+            'nama_bank_utj.required' => 'Nama bank tujuan UTJ wajib diisi.',
+            'no_rekening_utj.required' => 'No. rekening tujuan UTJ wajib diisi.',
+            'no_rekening_utj.regex' => 'No. rekening tujuan UTJ hanya boleh berisi angka.',
+            'suku_bunga_kpr.required' => 'Suku bunga KPR wajib diisi.',
+            'suku_bunga_kpr.numeric' => 'Suku bunga KPR harus berupa angka.',
+            'suku_bunga_kpr.min' => 'Suku bunga KPR tidak boleh kurang dari 0%.',
+            'suku_bunga_kpr.max' => 'Suku bunga KPR tidak boleh lebih dari 100%.',
         ]);
+
+        $marketingUser = $this->resolveMarketingUser((int) $validated['marketing_user_id']);
+        $validated['id_marketing_user'] = (int) $marketingUser->id_user;
+        $validated['nama_marketing'] = (string) $marketingUser->nama;
+        $validated['whatsapp_marketing'] = (string) $marketingUser->no_hp;
+
+        return $validated;
+    }
+
+    private function resolveMarketingUser(int $marketingUserId): User
+    {
+        $marketingUser = User::query()
+            ->with('role:id_role,nama_role')
+            ->find($marketingUserId);
+
+        if (! $marketingUser || strtolower((string) $marketingUser->role?->nama_role) !== 'marketing') {
+            throw ValidationException::withMessages([
+                'marketing_user_id' => ['Akun yang dipilih bukan akun marketing.'],
+            ]);
+        }
+
+        if (! (bool) $marketingUser->is_active) {
+            throw ValidationException::withMessages([
+                'marketing_user_id' => ['Akun marketing yang dipilih sedang nonaktif.'],
+            ]);
+        }
+
+        if (trim((string) $marketingUser->no_hp) === '') {
+            throw ValidationException::withMessages([
+                'marketing_user_id' => ['Nomor WhatsApp marketing belum terdaftar pada akun tersebut.'],
+            ]);
+        }
+
+        return $marketingUser;
     }
 
     private function preparePayload(array $validated): array
@@ -286,9 +386,10 @@ class PerumahanController extends Controller
         return [
             'nama_perumahan' => $validated['nama_perumahan'],
             'harga' => $validated['harga'],
+            'suku_bunga_kpr' => $validated['suku_bunga_kpr'],
             'tipe_unit' => $validated['tipe_unit'] ?? null,
             'kategori' => strtolower((string) ($validated['kategori'] ?? 'komersil')),
-            'status_label' => $validated['status_label'] ?? 'Available',
+            'id_marketing_user' => $validated['id_marketing_user'],
             'jumlah_seluruh_unit' => $validated['jumlah_seluruh_unit'],
             'jumlah_unit_tersedia' => $validated['jumlah_unit_tersedia'],
             'deskripsi' => $validated['deskripsi'] ?? null,
@@ -303,6 +404,8 @@ class PerumahanController extends Controller
             'fasilitas' => $this->normalizeFacilities($validated['fasilitas'] ?? null),
             'nama_marketing' => $validated['nama_marketing'],
             'whatsapp_marketing' => $validated['whatsapp_marketing'],
+            'nama_bank_utj' => trim((string) ($validated['nama_bank_utj'] ?? '')) ?: null,
+            'no_rekening_utj' => preg_replace('/\D+/', '', (string) ($validated['no_rekening_utj'] ?? '')) ?: null,
             'status_aktif' => isset($validated['status_aktif']) ? (bool) $validated['status_aktif'] : true,
         ];
     }
@@ -313,7 +416,7 @@ class PerumahanController extends Controller
         if ($request->filled('media_payload')) {
             $decoded = json_decode((string) $request->input('media_payload'), true);
             if (is_array($decoded)) {
-                $payload = array_slice($decoded, 0, 4);
+                $payload = array_slice($decoded, 0, 5);
             }
         }
 
@@ -324,7 +427,7 @@ class PerumahanController extends Controller
             }
             $idx = (int) ($item['index'] ?? -1);
             $url = $item['url_file'] ?? null;
-            if ($idx >= 0 && $idx < 4 && is_string($url) && $url !== '') {
+            if ($idx >= 0 && $idx < 5 && is_string($url) && $url !== '') {
                 $existingByIndex[$idx] = $url;
             }
         }
@@ -332,7 +435,7 @@ class PerumahanController extends Controller
         $files = $request->file('photos', []);
         $finalMedia = [];
 
-        for ($i = 0; $i < 4; $i++) {
+        for ($i = 0; $i < 5; $i++) {
             if (isset($files[$i]) && $files[$i]) {
                 $finalMedia[] = [
                     'url_file' => $this->storePhoto($files[$i]),
@@ -412,6 +515,15 @@ class PerumahanController extends Controller
                         'block_name' => $first->nama_blok,
                         'block_code' => $first->kode_blok,
                         'unit_count' => $group->count(),
+                        'units' => $group
+                            ->sortBy('nomor_unit')
+                            ->values()
+                            ->map(fn ($unit) => [
+                                'unit_number' => (int) $unit->nomor_unit,
+                                'sales_mode' => $unit->sales_mode ?: 'ready_stock',
+                                'estimated_completion_date' => optional($unit->estimated_completion_date)->toDateString(),
+                            ])
+                            ->all(),
                     ];
                 })
                 ->values()
@@ -424,6 +536,7 @@ class PerumahanController extends Controller
             'block_name' => 'Blok A',
             'block_code' => 'A',
             'unit_count' => $fallbackTotal,
+            'units' => $this->normalizeBlockUnits([], $fallbackTotal),
         ]];
     }
 
@@ -467,6 +580,7 @@ class PerumahanController extends Controller
                 'block_name' => $blockName,
                 'block_code' => $blockCode,
                 'unit_count' => $unitCount,
+                'units' => $this->normalizeBlockUnits(is_array($item['units'] ?? null) ? $item['units'] : [], $unitCount),
             ];
         }
 
@@ -477,6 +591,70 @@ class PerumahanController extends Controller
         }
 
         return $blocks;
+    }
+
+    private function normalizeBlockUnits(array $rawUnits, int $unitCount): array
+    {
+        $unitsByNumber = [];
+
+        foreach ($rawUnits as $index => $unit) {
+            if (! is_array($unit)) {
+                continue;
+            }
+
+            $unitNumber = (int) ($unit['unitNumber'] ?? $unit['unit_number'] ?? ($index + 1));
+            if ($unitNumber < 1 || $unitNumber > $unitCount) {
+                continue;
+            }
+
+            $salesMode = strtolower(trim((string) ($unit['salesMode'] ?? $unit['sales_mode'] ?? 'ready_stock')));
+            $salesMode = $salesMode === 'indent' ? 'indent' : 'ready_stock';
+            $estimatedCompletionDate = $salesMode === 'indent'
+                ? trim((string) ($unit['estimatedCompletionDate'] ?? $unit['estimated_completion_date'] ?? ''))
+                : null;
+
+            if ($salesMode === 'indent' && $estimatedCompletionDate === '') {
+                throw ValidationException::withMessages([
+                    'block_payload' => ["Estimasi selesai wajib diisi untuk unit indent nomor {$unitNumber}."],
+                ]);
+            }
+
+            if ($salesMode === 'indent' && ! $this->isValidIsoDate($estimatedCompletionDate)) {
+                throw ValidationException::withMessages([
+                    'block_payload' => ["Format estimasi selesai untuk unit {$unitNumber} tidak valid."],
+                ]);
+            }
+
+            $unitsByNumber[$unitNumber] = [
+                'unit_number' => $unitNumber,
+                'sales_mode' => $salesMode,
+                'estimated_completion_date' => $salesMode === 'indent'
+                    ? $estimatedCompletionDate
+                    : null,
+            ];
+        }
+
+        $units = [];
+        for ($i = 1; $i <= $unitCount; $i++) {
+            $units[] = $unitsByNumber[$i] ?? [
+                'unit_number' => $i,
+                'sales_mode' => 'ready_stock',
+                'estimated_completion_date' => null,
+            ];
+        }
+
+        return $units;
+    }
+
+    private function isValidIsoDate(?string $value): bool
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return false;
+        }
+
+        $date = \DateTime::createFromFormat('Y-m-d', $value);
+
+        return $date !== false && $date->format('Y-m-d') === $value;
     }
 
     private function normalizeBlockCode(string $blockName, int $index): string
@@ -506,15 +684,23 @@ class PerumahanController extends Controller
             $blockName = $block['block_name'];
             $blockCode = $block['block_code'];
             $unitCount = (int) $block['unit_count'];
+            $unitConfigs = collect($block['units'] ?? [])
+                ->keyBy(fn ($unit) => (int) ($unit['unit_number'] ?? 0));
 
             for ($i = 1; $i <= $unitCount; $i++) {
                 $code = "{$blockCode}{$i}";
+                $unitConfig = $unitConfigs->get($i, [
+                    'sales_mode' => 'ready_stock',
+                    'estimated_completion_date' => null,
+                ]);
                 $desiredUnits[$code] = [
                     'id_perumahan' => $property->id_perumahan,
                     'nama_blok' => $blockName,
                     'kode_blok' => $blockCode,
                     'nomor_unit' => $i,
                     'kode_unit' => $code,
+                    'sales_mode' => $unitConfig['sales_mode'] ?? 'ready_stock',
+                    'estimated_completion_date' => $unitConfig['estimated_completion_date'] ?? null,
                 ];
             }
         }
@@ -536,9 +722,9 @@ class PerumahanController extends Controller
         }
 
         if (! empty($lockedUnits)) {
-            throw ValidationException::withMessages([
-                'block_payload' => [
-                    'Perubahan blok tidak bisa disimpan karena unit berikut sedang diproses/terjual: '.implode(', ', $lockedUnits),
+                throw ValidationException::withMessages([
+                    'block_payload' => [
+                    'Perubahan blok tidak bisa disimpan karena unit berikut sedang terbooking atau sudah terjual: '.implode(', ', $lockedUnits),
                 ],
             ]);
         }
@@ -550,13 +736,21 @@ class PerumahanController extends Controller
                     'nama_blok' => $payload['nama_blok'],
                     'kode_blok' => $payload['kode_blok'],
                     'nomor_unit' => $payload['nomor_unit'],
+                    'sales_mode' => $payload['sales_mode'] ?? 'ready_stock',
+                    'estimated_completion_date' => $payload['estimated_completion_date'] ?? null,
                 ]);
                 continue;
             }
 
             PerumahanUnit::create([
-                ...$payload,
+                'id_perumahan' => $payload['id_perumahan'],
+                'nama_blok' => $payload['nama_blok'],
+                'kode_blok' => $payload['kode_blok'],
+                'nomor_unit' => $payload['nomor_unit'],
+                'kode_unit' => $payload['kode_unit'],
                 'status_unit' => 'available',
+                'sales_mode' => $payload['sales_mode'] ?? 'ready_stock',
+                'estimated_completion_date' => $payload['estimated_completion_date'] ?? null,
                 'id_booking_terakhir' => null,
             ]);
         }
@@ -595,6 +789,8 @@ class PerumahanController extends Controller
                 'nomor_unit' => $i,
                 'kode_unit' => "A{$i}",
                 'status_unit' => $i <= $availableUnits ? 'available' : 'sold',
+                'sales_mode' => 'ready_stock',
+                'estimated_completion_date' => null,
                 'id_booking_terakhir' => null,
             ];
         }
@@ -646,6 +842,8 @@ class PerumahanController extends Controller
                         'id' => $unit->id_unit_perumahan,
                         'code' => $unit->kode_unit,
                         'status' => $unit->status_unit,
+                        'salesMode' => $unit->sales_mode ?: 'ready_stock',
+                        'estimatedCompletionDate' => optional($unit->estimated_completion_date)->toDateString(),
                     ];
                 })->values()->all(),
             ];
@@ -667,6 +865,13 @@ class PerumahanController extends Controller
             ->all();
     }
 
+    private function resolvePropertyStatusLabel(Perumahan $property): string
+    {
+        return ((int) $property->jumlah_unit_tersedia) > 0
+            ? 'Tersedia'
+            : 'Terjual Habis';
+    }
+
     private function transformForUser(Perumahan $property, bool $withUnits = false): array
     {
         $images = $this->mediaUrls($property);
@@ -680,21 +885,25 @@ class PerumahanController extends Controller
             'city' => $property->kota,
             'gmapsUrl' => $property->gmaps_url,
             'price' => (float) $property->harga,
+            'kprInterest' => $property->suku_bunga_kpr !== null ? (float) $property->suku_bunga_kpr : null,
             'image' => $images[0] ?? '',
             'images' => $images,
             'type' => $property->tipe_unit,
             'category' => $property->kategori ?: 'komersil',
             'beds' => $property->jumlah_kamar_tidur,
             'baths' => $property->jumlah_kamar_mandi,
-            'status' => $property->status_label ?: 'Available',
+            'status' => $this->resolvePropertyStatusLabel($property),
             'description' => $property->deskripsi,
             'land' => $property->luas_tanah ? (float) $property->luas_tanah : null,
             'building' => $property->luas_bangunan ? (float) $property->luas_bangunan : null,
             'availableUnits' => (int) $property->jumlah_unit_tersedia,
             'totalUnits' => (int) $property->jumlah_seluruh_unit,
             'facilities' => is_array($facilities) ? $facilities : [],
+            'marketingUserId' => $property->id_marketing_user ? (int) $property->id_marketing_user : null,
             'marketingName' => $property->nama_marketing,
             'marketingWhatsapp' => $property->whatsapp_marketing,
+            'bankNameUtj' => $property->nama_bank_utj,
+            'noRekeningUtj' => $property->no_rekening_utj,
             'isActive' => (bool) $property->status_aktif,
         ];
 

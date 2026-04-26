@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ProfilPerusahaan;
+use App\Support\PhoneNumber;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -24,6 +25,7 @@ class CompanyProfileController extends Controller
             'email' => $profile->email,
             'telepon' => $profile->telepon,
             'whatsapp' => $profile->whatsapp,
+            'no_rekening_utj' => $profile->no_rekening_utj,
             'website' => $profile->website,
             'deskripsi' => $profile->deskripsi,
             'visi' => $profile->visi,
@@ -36,12 +38,17 @@ class CompanyProfileController extends Controller
 
     public function update(Request $request)
     {
+        $request->merge([
+            'whatsapp' => $this->normalizeNullablePhoneForValidation($request->input('whatsapp')),
+        ]);
+
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:150',
             'alamat' => 'nullable|string|max:255',
             'email' => 'nullable|string|max:120',
             'telepon' => 'nullable|string|max:25',
-            'whatsapp' => 'nullable|string|max:25',
+            'whatsapp' => 'nullable|string|regex:/^628[0-9]{7,13}$/|max:25',
+            'no_rekening_utj' => 'nullable|string|max:50',
             'website' => 'nullable|string|max:150',
             'deskripsi' => 'nullable|string',
             'visi' => 'nullable|string',
@@ -51,6 +58,8 @@ class CompanyProfileController extends Controller
             'logo' => 'nullable|image|max:2048',
             'awards_images.*' => 'nullable|image|max:2048',
             'team_images.*' => 'nullable|image|max:2048',
+        ], [
+            'whatsapp.regex' => 'Nomor WhatsApp marketing tidak valid. Gunakan format 08xxxxxxxxxx.',
         ]);
 
         $profile = ProfilPerusahaan::query()->first();
@@ -66,6 +75,7 @@ class CompanyProfileController extends Controller
             'email' => $validated['email'] ?? null,
             'telepon' => $validated['telepon'] ?? null,
             'whatsapp' => $validated['whatsapp'] ?? null,
+            'no_rekening_utj' => $validated['no_rekening_utj'] ?? null,
             'website' => $validated['website'] ?? null,
             'deskripsi' => $validated['deskripsi'] ?? null,
             'visi' => $validated['visi'] ?? null,
@@ -88,6 +98,21 @@ class CompanyProfileController extends Controller
             'message' => 'Profil perusahaan tersimpan.',
             'id_profil' => $profile->id_profil,
         ]);
+    }
+
+    private function normalizeNullablePhoneForValidation(mixed $input): ?string
+    {
+        $raw = is_string($input) ? $input : '';
+        if (PhoneNumber::digitsOnly($raw) === '') {
+            return null;
+        }
+
+        $normalized = PhoneNumber::normalizePhone($raw);
+        if ($normalized) {
+            return $normalized;
+        }
+
+        return PhoneNumber::digitsOnly($raw);
     }
 
     private function hydrateAwards(Request $request, array $awards): array

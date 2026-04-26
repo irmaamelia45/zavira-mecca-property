@@ -1,22 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaPlus, FaSave, FaTimes, FaTrashAlt, FaImage } from 'react-icons/fa';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { Card, CardContent } from '../../components/ui/Card';
-import { API_BASE, appendPropertyFormData, emptyPropertyForm, isValidWhatsapp62, normalizeImageSlots } from '../../utils/property';
+import PropertyUnitConfigTable from '../../components/admin/PropertyUnitConfigTable';
+import { appendPropertyFormData, createEmptyPropertyForm, normalizeImageSlots } from '../../utils/property';
 import { authHeaders } from '../../lib/auth';
-
-const facilityOptions = [
-    'Masjid',
-    'Taman Bermain',
-    'Keamanan 24 Jam',
-    'One Gate System',
-    'Dekat Tol',
-    'Dekat Sekolah',
-    'Dekat Pasar',
-    'Bebas Banjir',
-];
+import { apiJson } from '../../lib/api';
+import { formatPhoneForDisplay } from '../../lib/phone';
+import { createPropertyUnitBlock, normalizePropertyUnitBlocks } from '../../utils/propertyUnits';
 
 const emptyPromoForm = {
     title: '',
@@ -33,20 +26,39 @@ export default function AddProperty() {
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
     const [formError, setFormError] = useState('');
-    const [formData, setFormData] = useState(emptyPropertyForm);
+    const [formData, setFormData] = useState(() => createEmptyPropertyForm());
     const [imageSlots, setImageSlots] = useState(() => normalizeImageSlots([]));
     const [withPromo, setWithPromo] = useState(false);
     const [promoForm, setPromoForm] = useState(emptyPromoForm);
+    const [marketingOptions, setMarketingOptions] = useState([]);
+    const [loadingMarketingOptions, setLoadingMarketingOptions] = useState(true);
 
-    const extractApiError = (data, fallback) => {
-        if (data?.errors && typeof data.errors === 'object') {
-            const firstError = Object.values(data.errors).flat().find(Boolean);
-            if (firstError) return String(firstError);
-        }
+    useEffect(() => {
+        const fetchMarketingOptions = async () => {
+            setLoadingMarketingOptions(true);
+            try {
+                const data = await apiJson('/admin/users/marketing', {
+                    headers: authHeaders(),
+                    defaultErrorMessage: 'Gagal memuat daftar marketing.',
+                });
+                const options = (Array.isArray(data) ? data : [])
+                    .filter((item) => Boolean(item?.is_active))
+                    .map((item) => ({
+                        id: item?.id,
+                        nama: item?.nama || '',
+                        no_hp: item?.no_hp || '',
+                    }));
 
-        if (data?.message) return String(data.message);
-        return fallback;
-    };
+                setMarketingOptions(options);
+            } catch (err) {
+                setFormError(err.message || 'Gagal memuat daftar marketing.');
+            } finally {
+                setLoadingMarketingOptions(false);
+            }
+        };
+
+        fetchMarketingOptions();
+    }, []);
 
     const parseCurrencyInput = (value) => String(value || '').replace(/\D/g, '');
     const formatCurrencyInput = (value) => {
@@ -62,9 +74,9 @@ export default function AddProperty() {
     const updateBlock = (index, key, value) => {
         setFormData((prev) => ({
             ...prev,
-            unitBlocks: (prev.unitBlocks || []).map((item, itemIndex) => (
+            unitBlocks: normalizePropertyUnitBlocks((prev.unitBlocks || []).map((item, itemIndex) => (
                 itemIndex === index ? { ...item, [key]: value } : item
-            )),
+            ))),
         }));
     };
 
@@ -72,10 +84,10 @@ export default function AddProperty() {
         const nextIndex = (formData.unitBlocks || []).length;
         setFormData((prev) => ({
             ...prev,
-            unitBlocks: [
+            unitBlocks: normalizePropertyUnitBlocks([
                 ...(prev.unitBlocks || []),
-                { blockName: `Blok ${String.fromCharCode(65 + Math.min(nextIndex, 25))}`, unitCount: 1 },
-            ],
+                createPropertyUnitBlock(nextIndex),
+            ]),
         }));
     };
 
@@ -84,9 +96,27 @@ export default function AddProperty() {
             const nextBlocks = (prev.unitBlocks || []).filter((_, itemIndex) => itemIndex !== index);
             return {
                 ...prev,
-                unitBlocks: nextBlocks.length ? nextBlocks : [{ blockName: 'Blok A', unitCount: 1 }],
+                unitBlocks: normalizePropertyUnitBlocks(nextBlocks),
             };
         });
+    };
+
+    const updateUnitConfig = (blockIndex, unitIndex, field, value) => {
+        setFormData((prev) => ({
+            ...prev,
+            unitBlocks: normalizePropertyUnitBlocks((prev.unitBlocks || []).map((block, currentBlockIndex) => {
+                if (currentBlockIndex !== blockIndex) {
+                    return block;
+                }
+
+                return {
+                    ...block,
+                    units: (block.units || []).map((unit, currentUnitIndex) => (
+                        currentUnitIndex === unitIndex ? { ...unit, [field]: value } : unit
+                    )),
+                };
+            })),
+        }));
     };
 
     const totalUnitsFromBlocks = (formData.unitBlocks || []).reduce(
@@ -102,16 +132,14 @@ export default function AddProperty() {
         setPromoForm((prev) => ({ ...prev, [name]: value }));
     };
 
-    const toggleFacility = (facility) => {
-        setFormData((prev) => {
-            const exists = prev.facilities.includes(facility);
-            return {
-                ...prev,
-                facilities: exists
-                    ? prev.facilities.filter((item) => item !== facility)
-                    : [...prev.facilities, facility],
-            };
-        });
+    const setSelectedMarketing = (marketingId) => {
+        const selected = marketingOptions.find((item) => String(item.id) === String(marketingId));
+        setFormData((prev) => ({
+            ...prev,
+            marketingUserId: marketingId,
+            marketingName: selected?.nama || '',
+            marketingWhatsapp: formatPhoneForDisplay(selected?.no_hp || '') || '',
+        }));
     };
 
     const handleSlotFile = (index, file) => {
@@ -135,14 +163,25 @@ export default function AddProperty() {
     const validate = () => {
         if (!formData.name.trim()) return 'Nama perumahan wajib diisi.';
         if (!formData.price) return 'Harga wajib diisi.';
+        if (String(formData.kprInterest ?? '').trim() === '') return 'Suku bunga KPR wajib diisi.';
+        const kprInterest = Number(formData.kprInterest);
+        if (Number.isNaN(kprInterest)) return 'Suku bunga KPR harus berupa angka.';
+        if (kprInterest < 0 || kprInterest > 100) return 'Suku bunga KPR harus di antara 0% sampai 100%.';
         if (!(formData.unitBlocks || []).length) return 'Minimal satu blok unit wajib diisi.';
         const hasInvalidBlock = (formData.unitBlocks || []).some((item) => (
             !String(item?.blockName || '').trim() || Number(item?.unitCount) < 1
         ));
         if (hasInvalidBlock) return 'Nama blok dan jumlah unit per blok harus valid.';
         if (totalUnitsFromBlocks < 1) return 'Jumlah unit minimal 1.';
-        if (!formData.marketingName.trim()) return 'Nama marketing wajib diisi.';
-        if (!isValidWhatsapp62(formData.marketingWhatsapp)) return 'Nomor WhatsApp harus diawali 62 dan hanya angka.';
+        const invalidIndentUnit = (formData.unitBlocks || [])
+            .flatMap((block) => block.units || [])
+            .find((unit) => unit.salesMode === 'indent' && !String(unit.estimatedCompletionDate || '').trim());
+        if (invalidIndentUnit) {
+            return `Estimasi selesai untuk unit ${invalidIndentUnit.code} wajib diisi jika mode penjualan Indent.`;
+        }
+        if (!String(formData.marketingUserId || '').trim()) return 'Pilih marketing dari akun yang terdaftar.';
+        if (!String(formData.bankNameUtj || '').trim()) return 'Nama bank tujuan UTJ wajib diisi.';
+        if (!String(formData.noRekeningUtj || '').trim()) return 'No. rekening tujuan UTJ wajib diisi.';
         if (withPromo) {
             if (!promoForm.title.trim()) return 'Judul promo wajib diisi saat promo diaktifkan.';
             if (!promoForm.promoType) return 'Tipe promo wajib dipilih.';
@@ -166,16 +205,12 @@ export default function AddProperty() {
         payload.append('deskripsi', promoForm.description || '');
         payload.append('property_ids[]', propertyId);
 
-        const response = await fetch(`${API_BASE}/api/promos`, {
+        await apiJson('/promos', {
             method: 'POST',
             headers: authHeaders(),
             body: payload,
+            defaultErrorMessage: 'Gagal menyimpan promo.',
         });
-
-        if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
-            throw new Error(data?.message || 'Gagal menyimpan promo.');
-        }
     };
 
     const handleSubmit = async (e) => {
@@ -195,16 +230,12 @@ export default function AddProperty() {
                 availableUnits: totalUnitsFromBlocks,
             };
             const payload = appendPropertyFormData(payloadFormData, imageSlots);
-            const response = await fetch(`${API_BASE}/api/admin/perumahan`, {
+            const data = await apiJson('/admin/perumahan', {
                 method: 'POST',
                 headers: authHeaders(),
                 body: payload,
+                defaultErrorMessage: 'Gagal menyimpan perumahan.',
             });
-
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(extractApiError(data, 'Gagal menyimpan perumahan.'));
-            }
 
             if (withPromo) {
                 const createdPropertyId = data?.property?.id;
@@ -268,6 +299,34 @@ export default function AddProperty() {
                                     onChange={handlePriceChange}
                                     required
                                 />
+                                <Input
+                                    label="Suku Bunga KPR (%)"
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    value={formData.kprInterest}
+                                    onChange={(e) => setField('kprInterest', e.target.value)}
+                                    placeholder="Contoh: 8.50"
+                                    required
+                                />
+                                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <Input
+                                        label="Nama Bank Tujuan UTJ"
+                                        value={formData.bankNameUtj}
+                                        onChange={(e) => setField('bankNameUtj', e.target.value)}
+                                        placeholder="Contoh: BCA, BRI, Mandiri"
+                                        required
+                                    />
+                                    <Input
+                                        label="No. Rekening Tujuan UTJ"
+                                        value={formData.noRekeningUtj}
+                                        onChange={(e) => setField('noRekeningUtj', e.target.value.replace(/\D/g, ''))}
+                                        placeholder="Masukkan nomor rekening tujuan UTJ"
+                                        inputMode="numeric"
+                                        required
+                                    />
+                                </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-gray-700">Kategori</label>
                                     <select
@@ -281,18 +340,6 @@ export default function AddProperty() {
                                     </select>
                                 </div>
                                 <Input label="Tipe Unit" placeholder="Contoh: 36/60" value={formData.type} onChange={(e) => setField('type', e.target.value)} />
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-700">Label Status</label>
-                                    <select
-                                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                                        value={formData.status}
-                                        onChange={(e) => setField('status', e.target.value)}
-                                    >
-                                        <option value="Available">Available</option>
-                                        <option value="Sold Out">Sold Out</option>
-                                        <option value="Coming Soon">Coming Soon</option>
-                                    </select>
-                                </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-gray-700">Status Aktif</label>
                                     <select
@@ -367,21 +414,12 @@ export default function AddProperty() {
                                         <p className="text-lg font-bold text-emerald-800">{totalUnitsFromBlocks}</p>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-700">Fasilitas</label>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                    {facilityOptions.map((option) => (
-                                        <label key={option} className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.facilities.includes(option)}
-                                                onChange={() => toggleFacility(option)}
-                                            />
-                                            <span>{option}</span>
-                                        </label>
-                                    ))}
-                                </div>
+
+                                <PropertyUnitConfigTable
+                                    unitBlocks={formData.unitBlocks || []}
+                                    onUnitFieldChange={updateUnitConfig}
+                                    helperText="Atur mode penjualan unit sejak awal. Semua perubahan unit akan ikut tersimpan saat perumahan dibuat."
+                                />
                             </div>
                         </CardContent>
                     </Card>
@@ -394,8 +432,25 @@ export default function AddProperty() {
                                 <Input label="Kota/Kabupaten" value={formData.city} onChange={(e) => setField('city', e.target.value)} />
                                 <Input label="Lokasi Ringkas" placeholder="Contoh: Bandar Lampung" value={formData.location} onChange={(e) => setField('location', e.target.value)} />
                                 <Input label="Link Google Maps" value={formData.gmapsUrl} onChange={(e) => setField('gmapsUrl', e.target.value)} />
-                                <Input label="Nama Marketing" value={formData.marketingName} onChange={(e) => setField('marketingName', e.target.value)} required />
-                                <Input label="WhatsApp Marketing (62...)" value={formData.marketingWhatsapp} onChange={(e) => setField('marketingWhatsapp', e.target.value.replace(/\D/g, ''))} required />
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-700">Pilih Marketing</label>
+                                    <select
+                                        value={formData.marketingUserId || ''}
+                                        onChange={(e) => setSelectedMarketing(e.target.value)}
+                                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                                        required
+                                        disabled={loadingMarketingOptions}
+                                    >
+                                        <option value="">{loadingMarketingOptions ? 'Memuat akun marketing...' : 'Pilih akun marketing'}</option>
+                                        {marketingOptions.map((marketing) => (
+                                            <option key={marketing.id} value={marketing.id}>
+                                                {marketing.nama} - {formatPhoneForDisplay(marketing.no_hp) || marketing.no_hp}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <Input label="Nama Marketing (Otomatis)" value={formData.marketingName || '-'} readOnly />
+                                <Input label="WhatsApp Marketing (Otomatis)" value={formData.marketingWhatsapp || '-'} readOnly />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-gray-700">Deskripsi</label>
@@ -518,7 +573,7 @@ export default function AddProperty() {
                 <div className="space-y-6">
                     <Card className="border-none shadow-md">
                         <CardContent className="p-6 space-y-4">
-                            <h3 className="text-lg font-bold text-gray-800 border-b pb-2">Foto Perumahan (Maks 4)</h3>
+                            <h3 className="text-lg font-bold text-gray-800 border-b pb-2">Foto Perumahan (Maks 5)</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {imageSlots.map((slot, index) => (
                                     <div key={slot.index} className="rounded-lg border border-dashed border-gray-300 p-2 bg-gray-50">

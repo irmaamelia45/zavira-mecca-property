@@ -3,10 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { Card, CardContent } from '../../components/ui/Card';
+import TableSlidePagination from '../../components/admin/TableSlidePagination';
 import { FaSearch, FaClipboardList, FaClock, FaCheckCircle, FaFlagCheckered, FaSlidersH, FaChevronDown, FaChevronUp, FaCheck } from 'react-icons/fa';
 import { FiDownload } from 'react-icons/fi';
-import { API_BASE, formatMoney } from '../../utils/promo';
+import { apiJson } from '../../lib/api';
+import { formatMoney, normalizeApiListPayload } from '../../utils/promo';
 import { authHeaders } from '../../lib/auth';
+import { formatPhoneForDisplay } from '../../lib/phone';
+import useTableSlidePagination from '../../hooks/useTableSlidePagination';
 
 const STATUS_FILTERS = [
     { key: 'all', label: 'Semua Status' },
@@ -42,14 +46,11 @@ export default function BookingManagement() {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`${API_BASE}/api/admin/bookings`, {
+            const data = await apiJson('/admin/bookings', {
                 headers: authHeaders(),
+                defaultErrorMessage: 'Gagal memuat data booking.',
             });
-            if (!response.ok) {
-                throw new Error('Gagal memuat data booking.');
-            }
-            const data = await response.json();
-            setBookings(data || []);
+            setBookings(normalizeApiListPayload(data));
         } catch (err) {
             setError(err.message || 'Gagal memuat data booking.');
         } finally {
@@ -128,6 +129,21 @@ export default function BookingManagement() {
 
         return list.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
     }, [bookings, search, statusFilter, propertyFilter]);
+
+    const {
+        currentPage,
+        totalPages,
+        paginatedRows: paginatedBookings,
+        rangeStart,
+        rangeEnd,
+        canPrevious,
+        canNext,
+        goPrevious,
+        goNext,
+    } = useTableSlidePagination(filteredBookings, {
+        rowsPerPage: 10,
+        resetDeps: [search, statusFilter, propertyFilter],
+    });
 
     const summary = useMemo(() => {
         const total = bookings.length;
@@ -265,7 +281,7 @@ export default function BookingManagement() {
                 formatDateTime(booking.date),
                 booking.user?.name || '-',
                 booking.user?.email || '-',
-                booking.user?.phone || '-',
+                formatPhoneForDisplay(booking.user?.phone) || '-',
                 formatJobType(booking.jenis_pekerjaan),
                 booking.pekerjaan || '-',
                 formatMoney(booking.gaji_bulanan || 0),
@@ -530,7 +546,7 @@ export default function BookingManagement() {
                                         <td className="px-6 py-8 text-gray-500" colSpan="7">Tidak ada data yang cocok.</td>
                                     </tr>
                                 ) : (
-                                    filteredBookings.map((booking) => (
+                                    paginatedBookings.map((booking) => (
                                         <tr key={booking.id} className="hover:bg-slate-50/70 transition-colors">
                                             <td className="px-6 py-4 font-medium text-gray-700">{booking.code}</td>
                                             <td className="px-6 py-4">
@@ -569,6 +585,22 @@ export default function BookingManagement() {
                             </tbody>
                         </table>
                     </div>
+                    {!loading && (
+                        <div className="border-t border-slate-100 p-4">
+                            <TableSlidePagination
+                                rangeStart={rangeStart}
+                                rangeEnd={rangeEnd}
+                                totalItems={filteredBookings.length}
+                                totalPages={totalPages}
+                                currentPage={currentPage}
+                                itemLabel="booking"
+                                canPrevious={canPrevious}
+                                canNext={canNext}
+                                onPrevious={goPrevious}
+                                onNext={goNext}
+                            />
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>

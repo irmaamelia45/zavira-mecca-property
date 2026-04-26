@@ -1,18 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { API_BASE } from '../utils/promo';
+import { apiJson } from '../lib/api';
 import { clearAuth, saveAuth } from '../lib/auth';
 
 export default function Login() {
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams] = useSearchParams();
     const [isLoading, setIsLoading] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const successMessage = location.state?.message || (searchParams.get('reset') === 'success'
+        ? 'Password berhasil diperbarui. Silakan login menggunakan password baru Anda.'
+        : '');
     const emailInputRef = useRef(null);
     const passwordInputRef = useRef(null);
 
@@ -39,7 +43,7 @@ export default function Login() {
         setError('');
 
         try {
-            const response = await fetch(`${API_BASE}/api/auth/login`, {
+            const data = await apiJson('/auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -49,12 +53,8 @@ export default function Login() {
                     password,
                     device_name: 'web',
                 }),
+                defaultErrorMessage: 'Login gagal.',
             });
-
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(data?.message || 'Login gagal.');
-            }
 
             saveAuth({
                 token: data.token,
@@ -109,6 +109,7 @@ export default function Login() {
                                 ref={passwordInputRef}
                                 required
                             />
+                            {successMessage && <p className="text-sm text-green-700">{successMessage}</p>}
                             {error && <p className="text-sm text-red-600">{error}</p>}
 
                             <div className="flex items-center justify-between text-sm">
@@ -116,7 +117,9 @@ export default function Login() {
                                     <input type="checkbox" className="mr-2 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
                                     Ingat saya
                                 </label>
-                                <a href="#" className="text-primary-600 hover:text-primary-700 font-medium">Lupa Password?</a>
+                                <Link to="/auth/forgot-password" className="text-primary-600 hover:text-primary-700 font-medium">
+                                    Lupa Password?
+                                </Link>
                             </div>
 
                             <Button type="submit" className="w-full shadow-lg shadow-primary-500/20" isLoading={isLoading}>

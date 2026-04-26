@@ -5,12 +5,12 @@ import Badge from '../components/ui/Badge';
 import { Card, CardContent } from '../components/ui/Card';
 import { FiClock } from 'react-icons/fi';
 import {
-    API_BASE,
     formatMoney,
     getPromoPricing as calculatePromoPricing,
     mapPromoFromApi,
     normalizeApiListPayload,
 } from '../utils/promo';
+import { apiJson, resolveAssetUrl } from '../lib/api';
 import { authHeaders } from '../lib/auth';
 
 const STATUS_INSIGHT_THEME = {
@@ -83,13 +83,10 @@ export default function AccountBookingDetail() {
             setLoading(true);
             setError('');
             try {
-                const response = await fetch(`${API_BASE}/api/bookings/me/${id}`, {
+                const data = await apiJson(`/bookings/me/${id}`, {
                     headers: authHeaders(),
+                    defaultErrorMessage: 'Detail booking tidak ditemukan.',
                 });
-                if (!response.ok) {
-                    throw new Error('Detail booking tidak ditemukan.');
-                }
-                const data = await response.json();
                 setBooking(data);
             } catch (err) {
                 setError(err.message || 'Gagal memuat detail booking.');
@@ -104,13 +101,7 @@ export default function AccountBookingDetail() {
     useEffect(() => {
         const fetchPromos = async () => {
             try {
-                const response = await fetch(`${API_BASE}/api/promos`);
-                if (!response.ok) {
-                    setPromos([]);
-                    return;
-                }
-
-                const data = await response.json();
+                const data = await apiJson('/promos');
                 setPromos(normalizeApiListPayload(data).map(mapPromoFromApi));
             } catch {
                 setPromos([]);
@@ -136,6 +127,13 @@ export default function AccountBookingDetail() {
             year: 'numeric',
             hour: '2-digit',
             minute: '2-digit',
+        });
+    };
+    const formatMonthYear = (value) => {
+        if (!value) return 'Belum diatur admin';
+        return new Date(value).toLocaleDateString('id-ID', {
+            month: 'long',
+            year: 'numeric',
         });
     };
 
@@ -286,6 +284,11 @@ export default function AccountBookingDetail() {
                             <p className="font-semibold text-gray-900">
                                 {booking.unit?.code ? `${booking.unit.code} (${booking.unit.block_name || '-'})` : '-'}
                             </p>
+                            {booking.unit?.sales_mode === 'indent' && (
+                                <p className="mt-2 text-xs font-medium text-amber-700">
+                                    Unit ini masih dalam tahap pembangunan (Indent). Estimasi selesai: {formatMonthYear(booking.unit?.estimated_completion_date)}
+                                </p>
+                            )}
                         </div>
                         <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
                             <p className="text-gray-500">Tanggal Booking</p>
@@ -294,6 +297,14 @@ export default function AccountBookingDetail() {
                         <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
                             <p className="text-gray-500">Catatan Admin</p>
                             <p className="font-semibold text-gray-900">{booking.catatan_admin || '-'}</p>
+                        </div>
+                        <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
+                            <p className="text-gray-500">No. Rekening</p>
+                            <p className="font-semibold text-gray-900">{booking.no_rekening || '-'}</p>
+                        </div>
+                        <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
+                            <p className="text-gray-500">Nominal DP</p>
+                            <p className="font-semibold text-gray-900">{booking.range_harga_dp || '-'}</p>
                         </div>
                         <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
                             <p className="text-gray-500">Pekerjaan</p>
@@ -348,12 +359,13 @@ export default function AccountBookingDetail() {
                             {booking.documents.map((doc) => (
                                 <a
                                     key={doc.id}
-                                    href={`${API_BASE}${doc.path}`}
+                                    href={resolveAssetUrl(doc.path)}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="block rounded-md border border-gray-200 px-4 py-3 text-sm text-primary-700 hover:bg-gray-50"
                                 >
-                                    {doc.nama_file}
+                                    <span className="block font-semibold text-gray-900">{doc.jenis_dokumen || 'Dokumen'}</span>
+                                    <span className="mt-1 block text-sm text-primary-700">{doc.nama_file}</span>
                                 </a>
                             ))}
                         </div>

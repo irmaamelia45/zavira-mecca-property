@@ -4,11 +4,13 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
 import { Card, CardContent, CardTitle } from '../components/ui/Card';
-import { FiArrowLeft, FiCheck, FiMapPin, FiHeart, FiChevronLeft, FiChevronRight, FiChevronDown } from 'react-icons/fi';
+import { FiArrowLeft, FiMapPin, FiHeart, FiChevronLeft, FiChevronRight, FiChevronDown } from 'react-icons/fi';
 import { FaWhatsapp, FaTag, FaClock } from 'react-icons/fa';
-import { API_BASE, mapPromoFromApi, formatPromoPeriod, getPromoPricing as calculatePromoPricing, isPromoActive, resolveImage } from '../utils/promo';
+import { apiJson } from '../lib/api';
+import { mapPromoFromApi, formatPromoPeriod, getPromoPricing as calculatePromoPricing, isPromoActive, normalizeApiListPayload, resolveImage } from '../utils/promo';
 import { isFavoriteProperty, toggleFavoriteProperty } from '../lib/favorites';
 import { isLoggedIn } from '../lib/auth';
+import { formatPhoneForDisplay, normalizePhone } from '../lib/phone';
 import UnitPicker from '../components/booking/UnitPicker';
 
 export default function HousingDetail() {
@@ -28,7 +30,6 @@ export default function HousingDetail() {
 
     const [dp, setDp] = useState('');
     const [tenorMonths, setTenorMonths] = useState('');
-    const [interest, setInterest] = useState('');
     const [monthlyPayment, setMonthlyPayment] = useState(null);
     const [isFavorite, setIsFavorite] = useState(false);
     const [favoriteMessage, setFavoriteMessage] = useState('');
@@ -43,17 +44,22 @@ export default function HousingDetail() {
     };
 
     const parseFormattedNumber = (value) => Number(String(value || '').replace(/\D/g, '') || 0);
+    const formatMonthYear = (value) => {
+        if (!value) return 'Belum diatur admin';
+        return new Date(value).toLocaleDateString('id-ID', {
+            month: 'long',
+            year: 'numeric',
+        });
+    };
 
     useEffect(() => {
         const fetchDetail = async () => {
             setLoading(true);
             setError('');
             try {
-                const response = await fetch(`${API_BASE}/api/perumahan/${id}`);
-                if (!response.ok) {
-                    throw new Error('Properti tidak ditemukan.');
-                }
-                const data = await response.json();
+                const data = await apiJson(`/perumahan/${id}`, {
+                    defaultErrorMessage: 'Properti tidak ditemukan.',
+                });
                 const normalized = {
                     ...data,
                     images: (data.images || []).map((item) => resolveImage(item)),
@@ -74,12 +80,10 @@ export default function HousingDetail() {
     useEffect(() => {
         const fetchPromos = async () => {
             try {
-                const response = await fetch(`${API_BASE}/api/promos`);
-                if (!response.ok) {
-                    throw new Error('Gagal memuat promo.');
-                }
-                const data = await response.json();
-                setPromos((data || []).map(mapPromoFromApi));
+                const data = await apiJson('/promos', {
+                    defaultErrorMessage: 'Gagal memuat promo.',
+                });
+                setPromos(normalizeApiListPayload(data).map(mapPromoFromApi));
             } catch {
                 // Silent fail for promo section
             }
@@ -96,11 +100,9 @@ export default function HousingDetail() {
 
         const fetchUnitAvailability = async () => {
             try {
-                const response = await fetch(`${API_BASE}/api/perumahan/${id}/units`);
-                if (!response.ok) {
-                    throw new Error('Gagal memuat status unit.');
-                }
-                const data = await response.json();
+                const data = await apiJson(`/perumahan/${id}/units`, {
+                    defaultErrorMessage: 'Gagal memuat status unit.',
+                });
                 if (!isMounted) return;
 
                 setUnitBlocks(Array.isArray(data?.unitBlocks) ? data.unitBlocks : []);
@@ -135,12 +137,21 @@ export default function HousingDetail() {
 
         if (!latest || latest.status !== 'available') {
             setSelectedUnit(null);
+            return;
+        }
+
+        if (
+            latest.salesMode !== selectedUnit.salesMode
+            || latest.estimatedCompletionDate !== selectedUnit.estimatedCompletionDate
+            || latest.code !== selectedUnit.code
+        ) {
+            setSelectedUnit(latest);
         }
     }, [unitBlocks, selectedUnit]);
 
     const images = useMemo(() => {
         if (!property?.images?.length) return [];
-        return property.images.slice(0, 4);
+        return property.images.slice(0, 5);
     }, [property]);
 
     useEffect(() => {
@@ -184,10 +195,12 @@ export default function HousingDetail() {
     const basePrice = Number(property.price) || 0;
     const promoPricing = calculatePromoPricing(promos, property.id, basePrice);
     const finalPrice = Math.max(0, basePrice - promoPricing.discount);
+    const propertyInterest = Number(property?.kprInterest);
+    const hasConfiguredInterest = Number.isFinite(propertyInterest) && propertyInterest >= 0;
 
     const handleCalculate = (e) => {
         e.preventDefault();
-        if (dp === '' || tenorMonths === '' || interest === '') {
+        if (dp === '' || tenorMonths === '' || !hasConfiguredInterest) {
             setMonthlyPayment(null);
             return;
         }
@@ -196,7 +209,7 @@ export default function HousingDetail() {
         const dpValue = parseFormattedNumber(dp);
         const principal = price - dpValue;
         const n = Math.max(1, Number(tenorMonths) || 0);
-        const annualRate = Number(interest) || 0;
+        const annualRate = propertyInterest;
         const monthlyRate = (annualRate / 100) / 12;
 
         if (principal <= 0) {
@@ -251,11 +264,9 @@ export default function HousingDetail() {
     };
 
     const getWhatsappLink = () => {
-        const raw = property?.marketingWhatsapp || '';
-        const digits = raw.replace(/\D/g, '');
-        if (!digits) return '';
-        if (digits.startsWith('62')) return `https://wa.me/${digits}`;
-        const normalized = digits.startsWith('0') ? `62${digits.slice(1)}` : `62${digits}`;
+        const normalized = normalizePhone(property?.marketingWhatsapp || '');
+        if (!normalized) return '';
+
         return `https://wa.me/${normalized}`;
     };
 
@@ -280,6 +291,9 @@ export default function HousingDetail() {
         setSelectedUnit(unit);
         setUnitValidationError('');
     };
+
+    const selectedUnitIsIndent = selectedUnit?.salesMode === 'indent';
+    const selectedUnitEstimateLabel = formatMonthYear(selectedUnit?.estimatedCompletionDate);
 
     const handleGoBooking = () => {
         if (!selectedUnit?.id) {
@@ -325,7 +339,7 @@ export default function HousingDetail() {
                                 <div className="w-full h-full flex items-center justify-center text-gray-400">Belum ada foto</div>
                             )}
                             <div className="absolute top-4 right-4">
-                                <Badge className="bg-white/90 backdrop-blur-md text-primary-800 text-sm px-3 py-1 shadow-sm">{property.status || 'Available'}</Badge>
+                                <Badge className="bg-white/90 backdrop-blur-md text-primary-800 text-sm px-3 py-1 shadow-sm">{property.status || 'Tersedia'}</Badge>
                             </div>
                             {images.length > 1 && (
                                 <>
@@ -418,20 +432,6 @@ export default function HousingDetail() {
                                     <span className="text-gray-500">Jenis Rumah</span>
                                     <span className="font-medium text-gray-900">{categoryLabel(property.category)}</span>
                                 </div>
-                                <div className="flex flex-col gap-2">
-                                    <span className="text-gray-500">Fasilitas</span>
-                                    <div className="flex flex-wrap gap-2">
-                                        {(property.facilities || []).length ? (
-                                            property.facilities.map((fac, i) => (
-                                                <div key={`${fac}-${i}`} className="flex items-center bg-gray-50 px-3 py-1 rounded-md text-xs font-medium text-gray-700 border border-gray-200">
-                                                    <FiCheck className="text-primary-500 mr-2" /> {fac}
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <span className="text-xs text-gray-400">Belum ada fasilitas.</span>
-                                        )}
-                                    </div>
-                                </div>
                             </div>
 
                             {activePromos.length > 0 && (
@@ -494,12 +494,19 @@ export default function HousingDetail() {
                                             error={unitError}
                                             validationError={unitValidationError}
                                             title="Pilih blok dan unit rumah"
-                                            helperText="Unit hijau tersedia untuk booking. Unit kuning/merah tidak dapat dipilih."
+                                            helperText="Pastikan memilih unit yang tersedia untuk melanjutkan booking."
                                         />
                                     </div>
                                 )}
                                 {!showUnitDropdown && unitValidationError && (
                                     <p className="text-sm text-amber-700">{unitValidationError}</p>
+                                )}
+
+                                {selectedUnitIsIndent && (
+                                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                        <p className="font-semibold">Unit ini masih dalam tahap pembangunan (Indent).</p>
+                                        <p className="mt-1">Estimasi selesai: {selectedUnitEstimateLabel}</p>
+                                    </div>
                                 )}
 
                                 <Button
@@ -533,9 +540,16 @@ export default function HousingDetail() {
                                     required
                                 />
                                 <Input label="Tenor (bulan)" type="number" value={tenorMonths} onChange={(e) => setTenorMonths(e.target.value)} min={1} placeholder="Masukkan tenor" required />
-                                <Input label="Suku Bunga (%)" type="number" value={interest} onChange={(e) => setInterest(e.target.value)} step={0.1} placeholder="Masukkan suku bunga" required />
-                                <Button type="submit" className="w-full">Hitung KPR</Button>
+                                <Input
+                                    label="Suku Bunga (%)"
+                                    value={hasConfiguredInterest ? propertyInterest.toFixed(2) : 'Belum diatur admin'}
+                                    readOnly
+                                />
+                                <Button type="submit" className="w-full" disabled={!hasConfiguredInterest}>Hitung KPR</Button>
                             </form>
+                            {!hasConfiguredInterest && (
+                                <p className="mt-2 text-xs text-amber-700">Suku bunga belum diatur admin untuk perumahan ini.</p>
+                            )}
 
                             <div className="mt-6 rounded-md border border-gray-200 bg-gray-50 p-4 text-center">
                                 <p className="text-xs text-gray-500 mb-1">Estimasi Angsuran / Bulan</p>
@@ -559,7 +573,7 @@ export default function HousingDetail() {
                             </div>
                             <div className="space-y-1">
                                 <p className="text-xs text-gray-500">Nomor WhatsApp</p>
-                                <p className="text-sm font-medium text-gray-800">{property.marketingWhatsapp ? `+${property.marketingWhatsapp}` : '-'}</p>
+                                <p className="text-sm font-medium text-gray-800">{formatPhoneForDisplay(property.marketingWhatsapp) || '-'}</p>
                             </div>
                             <Button
                                 type="button"

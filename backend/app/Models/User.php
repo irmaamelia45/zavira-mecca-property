@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Support\PhoneNumber;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -15,7 +17,6 @@ class User extends Authenticatable
     protected $table = 'user';
     protected $primaryKey = 'id_user';
     protected $keyType = 'int';
-    protected $rememberTokenName = null;
 
     protected $fillable = [
         'id_role',
@@ -29,6 +30,7 @@ class User extends Authenticatable
 
     protected $hidden = [
         'password_hash',
+        'remember_token',
     ];
 
     protected function casts(): array
@@ -44,6 +46,31 @@ class User extends Authenticatable
     public function getAuthPassword(): string
     {
         return $this->password_hash;
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\Auth\ResetPasswordNotification($token));
+    }
+
+    protected function noHp(): Attribute
+    {
+        return Attribute::make(
+            set: function ($value) {
+                $raw = (string) $value;
+                $normalized = PhoneNumber::normalizePhone($raw);
+
+                if ($normalized) {
+                    return $normalized;
+                }
+
+                if (PhoneNumber::digitsOnly($raw) === '') {
+                    return '';
+                }
+
+                throw new \InvalidArgumentException('Nomor HP tidak valid. Gunakan format 08xxxxxxxxxx.');
+            }
+        );
     }
 
     public function role()
