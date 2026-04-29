@@ -4,8 +4,10 @@ import { FaArrowLeft, FaSave } from 'react-icons/fa';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { Card, CardContent } from '../../components/ui/Card';
+import PasswordChecklist from '../../components/auth/PasswordChecklist';
 import { apiJson } from '../../lib/api';
 import { authHeaders } from '../../lib/auth';
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from '../../lib/password';
 import { formatPhoneForDisplay, normalizePhone } from '../../lib/phone';
 
 const initialMarketingForm = {
@@ -38,6 +40,18 @@ export default function AddMarketingUser() {
         event.preventDefault();
         setSavingMarketing(true);
         setError('');
+
+        if (!isStrongPassword(marketingForm.password)) {
+            setError(PASSWORD_POLICY_MESSAGE);
+            setSavingMarketing(false);
+            return;
+        }
+
+        if (marketingForm.password_confirmation !== marketingForm.password) {
+            setError('Konfirmasi password tidak sama.');
+            setSavingMarketing(false);
+            return;
+        }
 
         try {
             const data = await apiJson('/admin/users/marketing', {
@@ -137,14 +151,18 @@ export default function AddMarketingUser() {
                                 onChange={(e) => updateMarketingField('alamat', e.target.value)}
                                 placeholder="Alamat marketing"
                             />
-                            <Input
-                                label="Password"
-                                type="password"
-                                value={marketingForm.password}
-                                onChange={(e) => updateMarketingField('password', e.target.value)}
-                                placeholder="Minimal 8 karakter"
-                                required
-                            />
+                            <div className="space-y-2">
+                                <Input
+                                    label="Password"
+                                    type="password"
+                                    value={marketingForm.password}
+                                    onChange={(e) => updateMarketingField('password', e.target.value)}
+                                    placeholder="Minimal 8 karakter, huruf besar, huruf kecil, angka, dan simbol"
+                                    minLength={8}
+                                    required
+                                />
+                                <PasswordChecklist password={marketingForm.password} />
+                            </div>
                             <Input
                                 label="Konfirmasi Password"
                                 type="password"

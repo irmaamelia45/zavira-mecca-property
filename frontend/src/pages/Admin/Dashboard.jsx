@@ -15,9 +15,10 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
     PieChart, Pie, Cell
 } from 'recharts';
+import AdminChartLegend from '../../components/admin/AdminChartLegend';
 import TableSlidePagination from '../../components/admin/TableSlidePagination';
 import logoPt from '../../assets/logo_pt.png';
-import { apiJson, ApiRequestError } from '../../lib/api';
+import { apiJson } from '../../lib/api';
 import { authHeaders, getStoredUser } from '../../lib/auth';
 import useTableSlidePagination from '../../hooks/useTableSlidePagination';
 
@@ -42,25 +43,6 @@ const PROPERTY_CATEGORY_SECTIONS = [
     { key: 'townhouse', label: 'Townhouse' },
     { key: 'lainnya', label: 'Lainnya' },
 ];
-
-function OutlineLegend({ items, className = '' }) {
-    return (
-        <div className={`flex flex-wrap items-center gap-2.5 ${className}`}>
-            {items.map((item) => (
-                <div
-                    key={item.name}
-                    className="inline-flex items-center gap-2"
-                >
-                    <span
-                        className="h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: item.color }}
-                    />
-                    <span className="text-[11px] font-medium text-slate-600">{item.name}</span>
-                </div>
-            ))}
-        </div>
-    );
-}
 
 export default function Dashboard() {
     const [loading, setLoading] = useState(true);
@@ -105,43 +87,13 @@ export default function Dashboard() {
                     defaultErrorMessage: 'Gagal memuat data dashboard.',
                 });
 
-                let propertyCountByCategory = null;
-                let propertyCategoryLookup = null;
-                try {
-                    const properties = await apiJson('/admin/perumahan', {
-                        headers: authHeaders(),
-                    });
-
-                    const counts = { subsidi: 0, komersil: 0, townhouse: 0 };
-                    const categoryLookup = {};
-
-                    (properties || []).forEach((property) => {
-                        const key = String(property?.category || '').toLowerCase();
-                        if (property?.id !== undefined && property?.id !== null) {
-                            categoryLookup[String(property.id)] = key;
-                        }
-                        if (Object.prototype.hasOwnProperty.call(counts, key)) {
-                            counts[key] += 1;
-                        }
-                    });
-
-                    propertyCountByCategory = counts;
-                    propertyCategoryLookup = categoryLookup;
-                } catch (propertyError) {
-                    if (!(propertyError instanceof ApiRequestError)) {
-                        throw propertyError;
-                    }
-                    // Keep fallback to summary cards when perumahan list fails to load.
-                }
-
                 setSummary({
                     ...data,
                     cards: {
                         ...DEFAULT_CARDS,
                         ...(data?.cards || {}),
-                        ...(propertyCountByCategory || {}),
                     },
-                    property_category_lookup: propertyCategoryLookup || {},
+                    property_category_lookup: data?.property_category_lookup || {},
                 });
             } catch (err) {
                 setError(err.message || 'Gagal memuat data dashboard.');
@@ -275,6 +227,10 @@ export default function Dashboard() {
         };
     }, [summary, selectedPropertyFilter]);
 
+    const totalRegisteredUsers = Number(userSummary.total_registered) || 0;
+    const totalActiveUsers = Number(userSummary.total_active) || 0;
+    const totalInactiveUsers = Number(userSummary.total_inactive) || 0;
+
     const propertyStatusData = useMemo(() => ([
         { name: 'Tersedia', value: selectedPropertyStatus.tersedia, color: '#10b981' },
         { name: 'Terbooking', value: selectedPropertyStatus.terbooking, color: '#f59e0b' },
@@ -306,9 +262,6 @@ export default function Dashboard() {
     const userRoleData = useMemo(() => (
         (userSummary.roles || []).filter((item) => (item?.total || 0) > 0 || item?.key !== 'lainnya')
     ), [userSummary.roles]);
-    const totalRegisteredUsers = Number(userSummary.total_registered) || 0;
-    const totalActiveUsers = Number(userSummary.total_active) || 0;
-    const totalInactiveUsers = Number(userSummary.total_inactive) || 0;
 
     const formatDate = (value) => {
         if (!value) return '-';
@@ -416,7 +369,6 @@ export default function Dashboard() {
                             {totalRegisteredUsers} akun terdaftar
                         </div>
                     </div>
-
                     <div className="h-72 w-full">
                         {loading ? (
                             <div className="h-full flex items-center justify-center text-sm text-slate-500">Memuat laporan user...</div>
@@ -494,12 +446,12 @@ export default function Dashboard() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div className="rounded-2xl border border-[#e7dfd0] bg-white p-5 lg:col-span-2 shadow-sm">
-                    <div className="flex justify-between items-center mb-5">
+                    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                             <h2 className="text-xl font-bold text-[#0b1e45]">Data Penjualan</h2>
                             <p className="text-xs text-slate-500">Booking per kategori ({new Date().getFullYear()})</p>
                         </div>
-                        <OutlineLegend items={salesLegendData} className="justify-end" />
+                        <AdminChartLegend items={salesLegendData} className="self-end justify-end sm:pt-1" />
                     </div>
                     <div className="h-72 w-full">
                         {loading ? (
@@ -629,7 +581,7 @@ export default function Dashboard() {
                             <span className="text-3xl font-bold text-[#0b1e45]">{totalUnit}</span>
                         </div>
                     </div>
-                    <OutlineLegend items={propertyStatusData} className="mt-2 justify-center" />
+                    <AdminChartLegend items={propertyStatusData} />
                 </div>
             </div>
 

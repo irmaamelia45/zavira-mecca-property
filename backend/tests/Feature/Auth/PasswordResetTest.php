@@ -61,8 +61,8 @@ class PasswordResetTest extends TestCase
         $response = $this->postJson('/api/auth/reset-password', [
             'token' => $token,
             'email' => $user->email,
-            'password' => 'PasswordBaru123',
-            'password_confirmation' => 'PasswordBaru123',
+            'password' => 'PasswordBaru123!',
+            'password_confirmation' => 'PasswordBaru123!',
         ]);
 
         $response
@@ -71,7 +71,7 @@ class PasswordResetTest extends TestCase
                 'message' => 'Password berhasil diperbarui. Silakan login menggunakan password baru Anda.',
             ]);
 
-        $this->assertTrue(password_verify('PasswordBaru123', $user->fresh()->password_hash));
+        $this->assertTrue(password_verify('PasswordBaru123!', $user->fresh()->password_hash));
         $this->assertNotNull($user->fresh()->remember_token);
         $this->assertDatabaseEmpty('personal_access_tokens');
     }
@@ -83,8 +83,8 @@ class PasswordResetTest extends TestCase
         $response = $this->postJson('/api/auth/reset-password', [
             'token' => 'token-yang-tidak-valid',
             'email' => $user->email,
-            'password' => 'PasswordBaru123',
-            'password_confirmation' => 'PasswordBaru123',
+            'password' => 'PasswordBaru123!',
+            'password_confirmation' => 'PasswordBaru123!',
         ]);
 
         $response
@@ -92,6 +92,24 @@ class PasswordResetTest extends TestCase
             ->assertJson([
                 'message' => 'Tautan reset password tidak valid atau sudah kedaluwarsa.',
             ]);
+    }
+
+    public function test_it_rejects_a_reset_password_that_does_not_match_policy(): void
+    {
+        $user = $this->createUser();
+        $token = Password::broker()->createToken($user);
+
+        $response = $this->postJson('/api/auth/reset-password', [
+            'token' => $token,
+            'email' => $user->email,
+            'password' => 'PasswordBaru123',
+            'password_confirmation' => 'PasswordBaru123',
+        ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['password'])
+            ->assertJsonPath('errors.password.0', \App\Support\PasswordPolicy::message());
     }
 
     private function createUser(): User

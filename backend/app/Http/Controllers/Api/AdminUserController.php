@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
+use App\Rules\StrongPassword;
 use App\Support\PhoneNumber;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rules\Password;
 
 class AdminUserController extends Controller
 {
@@ -61,7 +61,7 @@ class AdminUserController extends Controller
             'nama' => 'required|string|max:100',
             'email' => 'required|email|max:120|unique:user,email',
             'no_hp' => ['required', 'string', 'min:10', 'max:20', self::PHONE_RULE, 'unique:user,no_hp'],
-            'password' => ['required', 'confirmed', Password::min(8)],
+            'password' => ['required', 'confirmed', new StrongPassword],
             'alamat' => 'nullable|string|max:255',
             'is_active' => 'nullable|boolean',
         ], [
@@ -104,7 +104,7 @@ class AdminUserController extends Controller
             'nama' => 'required|string|max:100',
             'email' => 'required|email|max:120|unique:user,email',
             'no_hp' => ['required', 'string', 'min:10', 'max:20', self::PHONE_RULE, 'unique:user,no_hp'],
-            'password' => ['required', 'confirmed', Password::min(8)],
+            'password' => ['required', 'confirmed', new StrongPassword],
             'alamat' => 'nullable|string|max:255',
             'is_active' => 'nullable|boolean',
         ], [
@@ -203,7 +203,7 @@ class AdminUserController extends Controller
             ]);
 
             if (! $nextStatus) {
-                $user->tokens()->delete();
+                $this->revokeAllTokens($user);
             }
         }
 
@@ -288,7 +288,7 @@ class AdminUserController extends Controller
             ]);
 
             if (! $nextStatus) {
-                $user->tokens()->delete();
+                $this->revokeAllTokens($user);
             }
         }
 
@@ -322,6 +322,11 @@ class AdminUserController extends Controller
     {
         $role = strtolower((string) optional($request->user()?->role)->nama_role);
         return in_array($role, array_map('strtolower', $allowedRoles), true);
+    }
+
+    private function revokeAllTokens(User $user): void
+    {
+        $user->tokens()->delete();
     }
 
     private function normalizePhoneForValidation(mixed $input): string

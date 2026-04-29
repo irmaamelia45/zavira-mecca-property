@@ -3,21 +3,26 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\BackupBookingDocumentJob;
 use App\Jobs\SendWhatsappMessageJob;
 use App\Models\Booking;
-use App\Models\DocBooking;
 use App\Models\Perumahan;
 use App\Models\PerumahanUnit;
 use App\Models\User;
+use App\Services\Documents\BookingDocumentStorageService;
 use App\Services\Whatsapp\WhatsappMessageTemplateService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class BookingController extends Controller
 {
+    public function __construct(
+        private readonly BookingDocumentStorageService $documentStorageService,
+    ) {}
+
     public function indexMine(Request $request)
     {
         $bookings = Booking::query()
@@ -38,7 +43,7 @@ class BookingController extends Controller
             ->where('id_user', $request->user()->id_user)
             ->with([
                 'perumahan:id_perumahan,nama_perumahan,lokasi,harga',
-                'documents:id_doc_booking,id_booking,jenis_dokumen,nama_file,path_file,mime_type,file_size_kb,uploaded_at',
+                'documents:id_doc_booking,id_booking,jenis_dokumen,nama_file,path_file,mime_type,file_size_kb,uploaded_at,backup_status,deleted_local_at,storage_disk,storage_path',
                 'unitPerumahan:id_unit_perumahan,id_perumahan,nama_blok,kode_blok,kode_unit,status_unit,sales_mode,estimated_completion_date',
             ])
             ->find($id);
@@ -56,7 +61,7 @@ class BookingController extends Controller
             ->with([
                 'user:id_user,nama,email,no_hp',
                 'perumahan:id_perumahan,nama_perumahan,tipe_unit,lokasi,harga',
-                'documents:id_doc_booking,id_booking,jenis_dokumen,nama_file,path_file,mime_type,file_size_kb,uploaded_at',
+                'documents:id_doc_booking,id_booking,jenis_dokumen,nama_file,path_file,mime_type,file_size_kb,uploaded_at,backup_status,deleted_local_at,storage_disk,storage_path',
                 'unitPerumahan:id_unit_perumahan,id_perumahan,nama_blok,kode_blok,kode_unit,status_unit,sales_mode,estimated_completion_date',
             ])
             ->orderByDesc('tanggal_booking');
@@ -76,7 +81,7 @@ class BookingController extends Controller
             ->with([
                 'user:id_user,nama,email,no_hp',
                 'perumahan:id_perumahan,nama_perumahan,tipe_unit,lokasi,harga',
-                'documents:id_doc_booking,id_booking,jenis_dokumen,nama_file,path_file,mime_type,file_size_kb,uploaded_at',
+                'documents:id_doc_booking,id_booking,jenis_dokumen,nama_file,path_file,mime_type,file_size_kb,uploaded_at,backup_status,deleted_local_at,storage_disk,storage_path',
                 'unitPerumahan:id_unit_perumahan,id_perumahan,nama_blok,kode_blok,kode_unit,status_unit,sales_mode,estimated_completion_date',
             ])
             ->find($id);
@@ -179,9 +184,11 @@ class BookingController extends Controller
             $booking->load([
                 'user:id_user,nama,email,no_hp',
                 'perumahan:id_perumahan,nama_perumahan,tipe_unit,lokasi,harga',
-                'documents:id_doc_booking,id_booking,jenis_dokumen,nama_file,path_file,mime_type,file_size_kb,uploaded_at',
+                'documents:id_doc_booking,id_booking,jenis_dokumen,nama_file,path_file,mime_type,file_size_kb,uploaded_at,backup_status,deleted_local_at,storage_disk,storage_path',
                 'unitPerumahan:id_unit_perumahan,id_perumahan,nama_blok,kode_blok,kode_unit,status_unit,sales_mode,estimated_completion_date',
             ]);
+
+            $this->documentStorageService->syncRetentionForBooking($booking);
 
             return [
                 'booking' => $booking,
@@ -217,80 +224,116 @@ class BookingController extends Controller
             'jenis_pekerjaan' => ['required', Rule::in(['fixed_income', 'non_fixed_income'])],
             'gaji_bulanan' => 'required|integer|min:0',
             'memiliki_angsuran_lain' => 'required|boolean',
-            'dokumen' => 'required|file|mimes:pdf|max:5120',
-            'bukti_transfer_utj' => 'required|file|mimes:jpg,jpeg,png|max:1024',
+            'dokumen' => 'required|file|mimes:pdf|mimetypes:application/pdf|max:5120',
+            'bukti_transfer_utj' => 'required|file|mimes:jpg,jpeg,png|mimetypes:image/jpeg,image/png|max:1024',
             'persetujuan_syarat' => 'accepted',
         ], [
             'range_harga_dp.required' => 'Nominal DP wajib diisi.',
             'persetujuan_syarat.accepted' => 'Anda wajib menyetujui syarat dan ketentuan booking.',
         ]);
 
-        $booking = DB::transaction(function () use ($request, $validated) {
-            $unit = PerumahanUnit::query()
-                ->where('id_unit_perumahan', $validated['id_unit_perumahan'])
-                ->where('id_perumahan', $validated['id_perumahan'])
-                ->lockForUpdate()
-                ->first();
+        $storedPathsForCleanup = [];
+        $documentsToBackup = [];
 
-            if (! $unit) {
-                throw ValidationException::withMessages([
-                    'id_unit_perumahan' => ['Unit tidak ditemukan pada perumahan yang dipilih.'],
+        try {
+            $booking = DB::transaction(function () use ($request, $validated, &$storedPathsForCleanup, &$documentsToBackup) {
+                $unit = PerumahanUnit::query()
+                    ->where('id_unit_perumahan', $validated['id_unit_perumahan'])
+                    ->where('id_perumahan', $validated['id_perumahan'])
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $unit) {
+                    throw ValidationException::withMessages([
+                        'id_unit_perumahan' => ['Unit tidak ditemukan pada perumahan yang dipilih.'],
+                    ]);
+                }
+
+                if ($unit->status_unit !== 'available') {
+                    throw ValidationException::withMessages([
+                        'id_unit_perumahan' => ['Unit sudah tidak tersedia. Silakan pilih unit lain.'],
+                    ]);
+                }
+
+                $booking = Booking::create([
+                    'id_user' => $request->user()->id_user,
+                    'id_perumahan' => $validated['id_perumahan'],
+                    'id_unit_perumahan' => $unit->id_unit_perumahan,
+                    'kode_booking' => $this->generateBookingCode(),
+                    'status_booking' => 'Menunggu',
+                    'catatan_user' => $validated['catatan_user'] ?? null,
+                    'no_rekening' => preg_replace('/\D+/', '', (string) $validated['no_rekening']) ?: (string) $validated['no_rekening'],
+                    'range_harga_dp' => trim((string) $validated['range_harga_dp']),
+                    'pekerjaan' => $validated['pekerjaan'],
+                    'jenis_pekerjaan' => $validated['jenis_pekerjaan'],
+                    'gaji_bulanan' => $validated['gaji_bulanan'],
+                    'memiliki_angsuran_lain' => (bool) $validated['memiliki_angsuran_lain'],
                 ]);
-            }
 
-            if ($unit->status_unit !== 'available') {
-                throw ValidationException::withMessages([
-                    'id_unit_perumahan' => ['Unit sudah tidak tersedia. Silakan pilih unit lain.'],
+                if ($request->hasFile('dokumen')) {
+                    $document = $this->documentStorageService->storeUploadedDocument(
+                        bookingId: (int) $booking->id_booking,
+                        file: $request->file('dokumen'),
+                        documentType: 'Dokumen Booking',
+                        folder: 'documents',
+                    );
+
+                    $storedPathsForCleanup[] = [
+                        'disk' => (string) $document->storage_disk,
+                        'path' => (string) $document->storage_path,
+                    ];
+
+                    if ($document->backup_status === 'pending') {
+                        $documentsToBackup[] = (int) $document->id_doc_booking;
+                    }
+                }
+
+                if ($request->hasFile('bukti_transfer_utj')) {
+                    $document = $this->documentStorageService->storeUploadedDocument(
+                        bookingId: (int) $booking->id_booking,
+                        file: $request->file('bukti_transfer_utj'),
+                        documentType: 'Bukti Transfer UTJ',
+                        folder: 'transfer-proofs',
+                    );
+
+                    $storedPathsForCleanup[] = [
+                        'disk' => (string) $document->storage_disk,
+                        'path' => (string) $document->storage_path,
+                    ];
+
+                    if ($document->backup_status === 'pending') {
+                        $documentsToBackup[] = (int) $document->id_doc_booking;
+                    }
+                }
+
+                $unit->update([
+                    'status_unit' => 'pending',
+                    'id_booking_terakhir' => $booking->id_booking,
                 ]);
-            }
 
-            $booking = Booking::create([
-                'id_user' => $request->user()->id_user,
-                'id_perumahan' => $validated['id_perumahan'],
-                'id_unit_perumahan' => $unit->id_unit_perumahan,
-                'kode_booking' => $this->generateBookingCode(),
-                'status_booking' => 'Menunggu',
-                'catatan_user' => $validated['catatan_user'] ?? null,
-                'no_rekening' => preg_replace('/\D+/', '', (string) $validated['no_rekening']) ?: (string) $validated['no_rekening'],
-                'range_harga_dp' => trim((string) $validated['range_harga_dp']),
-                'pekerjaan' => $validated['pekerjaan'],
-                'jenis_pekerjaan' => $validated['jenis_pekerjaan'],
-                'gaji_bulanan' => $validated['gaji_bulanan'],
-                'memiliki_angsuran_lain' => (bool) $validated['memiliki_angsuran_lain'],
-            ]);
+                $this->syncAvailableUnitCounter($booking->id_perumahan, 'available', 'pending');
 
-            if ($request->hasFile('dokumen')) {
-                $this->storeBookingDocument(
-                    bookingId: (int) $booking->id_booking,
-                    file: $request->file('dokumen'),
-                    documentType: 'Dokumen Booking',
-                    folder: 'booking-documents',
+                return $booking->fresh([
+                    'user:id_user,nama,no_hp',
+                    'perumahan:id_perumahan,nama_perumahan,lokasi,harga',
+                    'documents:id_doc_booking,id_booking,jenis_dokumen,nama_file,path_file,mime_type,file_size_kb,uploaded_at,backup_status,deleted_local_at,storage_disk,storage_path',
+                    'unitPerumahan:id_unit_perumahan,id_perumahan,nama_blok,kode_blok,kode_unit,status_unit,sales_mode,estimated_completion_date',
+                ]);
+            });
+        } catch (Throwable $exception) {
+            foreach ($storedPathsForCleanup as $storedPath) {
+                $this->documentStorageService->cleanupStoredPath(
+                    (string) ($storedPath['disk'] ?? ''),
+                    (string) ($storedPath['path'] ?? '')
                 );
             }
 
-            if ($request->hasFile('bukti_transfer_utj')) {
-                $this->storeBookingDocument(
-                    bookingId: (int) $booking->id_booking,
-                    file: $request->file('bukti_transfer_utj'),
-                    documentType: 'Bukti Transfer UTJ',
-                    folder: 'booking-transfer-proofs',
-                );
-            }
+            throw $exception;
+        }
 
-            $unit->update([
-                'status_unit' => 'pending',
-                'id_booking_terakhir' => $booking->id_booking,
-            ]);
-
-            $this->syncAvailableUnitCounter($booking->id_perumahan, 'available', 'pending');
-
-            return $booking->fresh([
-                'user:id_user,nama,no_hp',
-                'perumahan:id_perumahan,nama_perumahan,lokasi,harga',
-                'documents:id_doc_booking,id_booking,jenis_dokumen,nama_file,path_file,mime_type,file_size_kb,uploaded_at',
-                'unitPerumahan:id_unit_perumahan,id_perumahan,nama_blok,kode_blok,kode_unit,status_unit,sales_mode,estimated_completion_date',
-            ]);
-        });
+        foreach ($documentsToBackup as $documentId) {
+            BackupBookingDocumentJob::dispatch($documentId);
+        }
 
         $this->dispatchBookingCreatedNotifications($booking);
 
@@ -466,30 +509,6 @@ class BookingController extends Controller
         return 'pending';
     }
 
-    private function storeBookingDocument(int $bookingId, $file, string $documentType, string $folder): void
-    {
-        $ext = $file->getClientOriginalExtension() ?: 'bin';
-        $mimeType = $file->getMimeType() ?: $file->getClientMimeType() ?: 'application/octet-stream';
-        $fileSizeKb = (int) ceil(($file->getSize() ?: 0) / 1024);
-        $filename = Str::uuid()->toString().'.'.$ext;
-        $directory = public_path('uploads/'.$folder);
-
-        if (! is_dir($directory)) {
-            mkdir($directory, 0755, true);
-        }
-
-        $file->move($directory, $filename);
-
-        DocBooking::create([
-            'id_booking' => $bookingId,
-            'jenis_dokumen' => $documentType,
-            'nama_file' => $file->getClientOriginalName(),
-            'path_file' => '/uploads/'.$folder.'/'.$filename,
-            'mime_type' => $mimeType,
-            'file_size_kb' => $fileSizeKb,
-        ]);
-    }
-
     private function syncAvailableUnitCounter(int $propertyId, string $fromStatus, string $toStatus): void
     {
         $fromAvailable = $fromStatus === 'available';
@@ -525,9 +544,14 @@ class BookingController extends Controller
                 'id' => $doc->id_doc_booking,
                 'jenis_dokumen' => $doc->jenis_dokumen,
                 'nama_file' => $doc->nama_file,
-                'path' => $doc->path_file,
                 'mime_type' => $doc->mime_type,
                 'file_size_kb' => $doc->file_size_kb,
+                'backup_status' => $doc->backup_status,
+                'deleted_local_at' => optional($doc->deleted_local_at)->toDateTimeString(),
+                'download_url' => route('bookings.documents.mine.download', [
+                    'bookingId' => $booking->id_booking,
+                    'documentId' => $doc->id_doc_booking,
+                ], false),
                 'uploaded_at' => optional($doc->uploaded_at)->toDateTimeString(),
             ])->values()->all()
             : [];
@@ -577,9 +601,14 @@ class BookingController extends Controller
                 'id' => $doc->id_doc_booking,
                 'jenis_dokumen' => $doc->jenis_dokumen,
                 'nama_file' => $doc->nama_file,
-                'path' => $doc->path_file,
                 'mime_type' => $doc->mime_type,
                 'file_size_kb' => $doc->file_size_kb,
+                'backup_status' => $doc->backup_status,
+                'deleted_local_at' => optional($doc->deleted_local_at)->toDateTimeString(),
+                'download_url' => route('admin.bookings.documents.download', [
+                    'bookingId' => $booking->id_booking,
+                    'documentId' => $doc->id_doc_booking,
+                ], false),
             ])->values()->all()
             : [];
 

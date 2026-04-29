@@ -153,18 +153,6 @@ export default function Home() {
         }
     ]), [properties]);
 
-    useEffect(() => {
-        const activeCategoryExists = categories.some((category) => category.key === activeCategory && category.count > 0);
-        if (activeCategoryExists) {
-            return;
-        }
-
-        const firstAvailableCategory = categories.find((category) => category.count > 0);
-        if (firstAvailableCategory) {
-            setActiveCategory(firstAvailableCategory.key);
-        }
-    }, [categories, activeCategory]);
-
     const activeCategoryDetail = useMemo(
         () => categories.find((category) => category.key === activeCategory) || categories[0] || null,
         [categories, activeCategory]
@@ -243,6 +231,17 @@ export default function Home() {
         }
         return activeCategoryDetail?.title || 'Kategori';
     }, [activeCategory, activeCategoryDetail, currentCategoryProperty]);
+    const emptyCategoryMessage = useMemo(() => {
+        if (activeCategory === 'all') {
+            return 'Saat ini belum ada perumahan yang tersedia.';
+        }
+
+        const categoryLabel = activeCategory === 'townhouse'
+            ? 'perumahan townhouse'
+            : (activeCategoryDetail?.title || 'perumahan kategori ini').toLowerCase();
+
+        return `Saat ini tidak ada ${categoryLabel}.`;
+    }, [activeCategory, activeCategoryDetail]);
 
     const activePropertyPricing = useMemo(() => {
         const basePrice = toNumber(currentCategoryProperty?.price);
@@ -489,7 +488,7 @@ export default function Home() {
                         <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
                     </div>
 
-                    <div className="flex flex-wrap gap-3 mb-8">
+                    <div className="mb-8 grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap sm:gap-3">
                         {categories.map((category) => {
                             const isActive = activeCategory === category.key;
                             const Icon = category.icon;
@@ -498,14 +497,14 @@ export default function Home() {
                                     key={category.key}
                                     type="button"
                                     onClick={() => setActiveCategory(category.key)}
-                                    className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-all duration-300 ${
+                                    className={`inline-flex min-w-0 items-center justify-center gap-2 rounded-full border px-3 py-2 text-[12px] font-semibold transition-all duration-300 sm:w-auto sm:px-4 sm:text-sm ${
                                         isActive
                                             ? 'bg-primary-600 text-white border-primary-600 shadow-lg shadow-primary-200'
                                             : 'bg-white text-gray-700 border-gray-200 hover:border-primary-300 hover:text-primary-700'
                                     }`}
                                 >
-                                    <Icon className="text-base" />
-                                    {category.title}
+                                    <Icon className="shrink-0 text-[13px] sm:text-base" />
+                                    <span className="truncate">{category.title}</span>
                                 </button>
                             );
                         })}
@@ -523,7 +522,7 @@ export default function Home() {
                         <div className="rounded-3xl border border-gray-200 bg-white p-8 text-gray-500">
                             {categorySearch.trim()
                                 ? `Tidak ada perumahan yang cocok dengan pencarian "${categorySearch}".`
-                                : 'Belum ada perumahan pada kategori ini.'}
+                                : emptyCategoryMessage}
                         </div>
                     ) : (
                         <div className="rounded-3xl border border-gray-200 bg-white p-5 md:p-8 shadow-xl shadow-slate-200/60">
@@ -828,19 +827,19 @@ export default function Home() {
                                     agar Anda lebih percaya diri dalam memilih hunian.
                                 </p>
 
-                                <div className="mb-7 overflow-hidden rounded-2xl border border-primary-500 bg-primary-600">
-                                    <div className="grid grid-cols-1 sm:grid-cols-3">
+                                <div className="mb-7 overflow-hidden rounded-xl border border-primary-500 bg-primary-600 md:rounded-2xl">
+                                    <div className="grid grid-cols-3">
                                         {insightCards.map((item, index) => (
                                             <div
                                                 key={item.title}
-                                                className={`px-4 py-4 md:px-5 md:py-5 ${
+                                                className={`min-w-0 px-2.5 py-3 text-center sm:px-4 sm:py-4 md:px-5 md:py-5 ${
                                                     index < insightCards.length - 1
-                                                        ? 'border-b border-white/20 sm:border-b-0 sm:border-r'
+                                                        ? 'border-r border-white/20'
                                                         : ''
                                                 }`}
                                             >
-                                                <p className="text-3xl md:text-4xl font-semibold text-white leading-none mb-2">{item.value}</p>
-                                                <p className="text-sm md:text-base text-white">{item.title}</p>
+                                                <p className="mb-1 text-[1.35rem] font-semibold leading-none text-white sm:text-3xl md:mb-2 md:text-4xl">{item.value}</p>
+                                                <p className="text-[10px] font-semibold leading-tight text-white sm:text-sm md:text-base">{item.title}</p>
                                             </div>
                                         ))}
                                     </div>

@@ -10,7 +10,7 @@ import {
     mapPromoFromApi,
     normalizeApiListPayload,
 } from '../utils/promo';
-import { apiJson, resolveAssetUrl } from '../lib/api';
+import { apiJson, downloadApiFile } from '../lib/api';
 import { authHeaders } from '../lib/auth';
 
 const STATUS_INSIGHT_THEME = {
@@ -77,6 +77,8 @@ export default function AccountBookingDetail() {
     const [promos, setPromos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [downloadError, setDownloadError] = useState('');
+    const [downloadingDocumentId, setDownloadingDocumentId] = useState(null);
 
     useEffect(() => {
         const fetchDetail = async () => {
@@ -110,6 +112,25 @@ export default function AccountBookingDetail() {
 
         fetchPromos();
     }, []);
+
+    const handleDocumentDownload = async (document) => {
+        if (!document?.download_url) return;
+
+        setDownloadError('');
+        setDownloadingDocumentId(document.id);
+
+        try {
+            await downloadApiFile(document.download_url, {
+                headers: authHeaders(),
+                defaultErrorMessage: 'Gagal mengunduh dokumen.',
+                fallbackFileName: document.nama_file || 'dokumen-booking',
+            });
+        } catch (err) {
+            setDownloadError(err.message || 'Gagal mengunduh dokumen.');
+        } finally {
+            setDownloadingDocumentId(null);
+        }
+    };
 
     const statusVariant = (status) => {
         const normalized = String(status || '').toLowerCase();
@@ -352,21 +373,24 @@ export default function AccountBookingDetail() {
             <Card className="border-none shadow-md">
                 <CardContent className="p-6 space-y-2">
                     <h2 className="text-xl font-bold text-gray-900">Dokumen</h2>
+                    {downloadError && <p className="text-sm text-red-600">{downloadError}</p>}
                     {(booking.documents || []).length === 0 ? (
                         <p className="text-sm text-gray-500">Belum ada dokumen terlampir.</p>
                     ) : (
                         <div className="space-y-2">
                             {booking.documents.map((doc) => (
-                                <a
+                                <button
+                                    type="button"
                                     key={doc.id}
-                                    href={resolveAssetUrl(doc.path)}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="block rounded-md border border-gray-200 px-4 py-3 text-sm text-primary-700 hover:bg-gray-50"
+                                    onClick={() => handleDocumentDownload(doc)}
+                                    disabled={downloadingDocumentId === doc.id}
+                                    className="block w-full rounded-md border border-gray-200 px-4 py-3 text-left text-sm text-primary-700 hover:bg-gray-50 disabled:opacity-70"
                                 >
                                     <span className="block font-semibold text-gray-900">{doc.jenis_dokumen || 'Dokumen'}</span>
-                                    <span className="mt-1 block text-sm text-primary-700">{doc.nama_file}</span>
-                                </a>
+                                    <span className="mt-1 block text-sm text-primary-700">
+                                        {downloadingDocumentId === doc.id ? 'Mengunduh dokumen...' : doc.nama_file}
+                                    </span>
+                                </button>
                             ))}
                         </div>
                     )}

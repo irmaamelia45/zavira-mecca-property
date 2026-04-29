@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import PasswordChecklist from '../../components/auth/PasswordChecklist';
 import { apiJson } from '../../lib/api';
 import { authHeaders, getStoredUser, getUserRole, saveAuth } from '../../lib/auth';
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from '../../lib/password';
 import { formatPhoneForDisplay, normalizePhone } from '../../lib/phone';
 
 const initialProfile = {
@@ -119,6 +121,18 @@ export default function AdminProfile() {
         setError('');
         setSuccess('');
 
+        if (!isStrongPassword(passwordForm.new_password)) {
+            setError(PASSWORD_POLICY_MESSAGE);
+            setSavingPassword(false);
+            return;
+        }
+
+        if (passwordForm.new_password_confirmation !== passwordForm.new_password) {
+            setError('Konfirmasi password baru tidak sama.');
+            setSavingPassword(false);
+            return;
+        }
+
         try {
             const data = await apiJson('/auth/password', {
                 method: 'PUT',
@@ -221,14 +235,18 @@ export default function AdminProfile() {
                                 required
                             />
                             <div className="hidden md:block" />
-                            <Input
-                                label="Password Baru"
-                                type="password"
-                                value={passwordForm.new_password}
-                                onChange={(event) => setPasswordForm((prev) => ({ ...prev, new_password: event.target.value }))}
-                                placeholder="Minimal 8 karakter"
-                                required
-                            />
+                            <div className="space-y-2">
+                                <Input
+                                    label="Password Baru"
+                                    type="password"
+                                    value={passwordForm.new_password}
+                                    onChange={(event) => setPasswordForm((prev) => ({ ...prev, new_password: event.target.value }))}
+                                    placeholder="Minimal 8 karakter, huruf besar, huruf kecil, angka, dan simbol"
+                                    minLength={8}
+                                    required
+                                />
+                                <PasswordChecklist password={passwordForm.new_password} />
+                            </div>
                             <Input
                                 label="Konfirmasi Password Baru"
                                 type="password"

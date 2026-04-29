@@ -15,6 +15,7 @@
   --color-primary-700: #243a66;
   --color-primary-800: #192a4d;
   --color-primary-900: #10214b;
+  --color-primary-950: #0a142e;
 
   --color-secondary-50: #f8f2e6;
   --color-secondary-100: #f1e5cc;
@@ -26,6 +27,7 @@
   --color-secondary-700: #9f875a;
   --color-secondary-800: #7b6a47;
   --color-secondary-900: #5a4d35;
+  --color-secondary-950: #382f1e;
 }
 
 @layer base {

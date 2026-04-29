@@ -42,4 +42,10 @@ return [
         'connect_only' => (bool) env('FONNTE_CONNECT_ONLY', true),
     ],
 
+    'google_drive' => [
+        'service_account_json_path' => env('GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON_PATH'),
+        'shared_drive_id' => env('GOOGLE_DRIVE_SHARED_DRIVE_ID'),
+        'root_folder_id' => env('GOOGLE_DRIVE_ROOT_FOLDER_ID'),
+    ],
+
 ];

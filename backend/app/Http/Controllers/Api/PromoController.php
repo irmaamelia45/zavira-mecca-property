@@ -113,7 +113,7 @@ class PromoController extends Controller
             'tanggal_mulai' => 'nullable|date',
             'tanggal_selesai' => 'nullable|date|after_or_equal:tanggal_mulai',
             'is_active' => 'nullable|boolean',
-            'banner' => 'nullable|image|max:2048',
+            'banner' => 'nullable|file|mimes:jpg,jpeg,png,webp|mimetypes:image/jpeg,image/png,image/webp|max:2048',
             'property_ids' => 'nullable|array',
             'property_ids.*' => 'integer|exists:perumahan,id_perumahan',
         ]);
@@ -185,7 +185,7 @@ class PromoController extends Controller
 
     private function storePublicFile($file, string $folder): string
     {
-        $extension = $file->getClientOriginalExtension() ?: 'jpg';
+        $extension = $this->extensionFromMimeType($file);
         $filename = Str::uuid()->toString().'.'.$extension;
         $path = public_path('uploads/'.$folder);
 
@@ -196,6 +196,15 @@ class PromoController extends Controller
         $file->move($path, $filename);
 
         return '/uploads/'.$folder.'/'.$filename;
+    }
+
+    private function extensionFromMimeType($file): string
+    {
+        return match ($file->getMimeType()) {
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            default => 'jpg',
+        };
     }
 
     private function dispatchPromoBroadcast(Promo $promo): void

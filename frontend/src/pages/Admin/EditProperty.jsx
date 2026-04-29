@@ -313,6 +313,17 @@ export default function EditProperty() {
                                     placeholder="Contoh: 8.50"
                                     required
                                 />
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-700">Status Aktif</label>
+                                    <select
+                                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                                        value={formData.isActive ? '1' : '0'}
+                                        onChange={(e) => setField('isActive', e.target.value === '1')}
+                                    >
+                                        <option value="1">Aktif</option>
+                                        <option value="0">Nonaktif</option>
+                                    </select>
+                                </div>
                                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <Input
                                         label="Nama Bank Tujuan UTJ"
@@ -343,17 +354,6 @@ export default function EditProperty() {
                                     </select>
                                 </div>
                                 <Input label="Tipe Unit" placeholder="Contoh: 36/60" value={formData.type} onChange={(e) => setField('type', e.target.value)} />
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-700">Status Aktif</label>
-                                    <select
-                                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                                        value={formData.isActive ? '1' : '0'}
-                                        onChange={(e) => setField('isActive', e.target.value === '1')}
-                                    >
-                                        <option value="1">Aktif</option>
-                                        <option value="0">Nonaktif</option>
-                                    </select>
-                                </div>
                             </div>
                         </CardContent>
                     </Card>

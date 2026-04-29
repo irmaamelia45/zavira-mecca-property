@@ -324,7 +324,7 @@ class PerumahanController extends Controller
             'block_payload' => 'nullable|string',
             'media_payload' => 'nullable|string',
             'photos' => 'nullable|array|max:5',
-            'photos.*' => 'nullable|image|max:5120',
+            'photos.*' => 'nullable|file|mimes:jpg,jpeg,png,webp|mimetypes:image/jpeg,image/png,image/webp|max:5120',
         ], [
             'marketing_user_id.required' => 'Marketing wajib dipilih dari akun yang terdaftar.',
             'marketing_user_id.exists' => 'Marketing yang dipilih tidak ditemukan.',
@@ -467,7 +467,7 @@ class PerumahanController extends Controller
 
     private function storePhoto($file): string
     {
-        $ext = $file->getClientOriginalExtension() ?: 'jpg';
+        $ext = $this->extensionFromMimeType($file);
         $filename = Str::uuid()->toString().'.'.$ext;
         $directory = public_path('uploads/perumahan');
 
@@ -478,6 +478,15 @@ class PerumahanController extends Controller
         $file->move($directory, $filename);
 
         return '/uploads/perumahan/'.$filename;
+    }
+
+    private function extensionFromMimeType($file): string
+    {
+        return match ($file->getMimeType()) {
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            default => 'jpg',
+        };
     }
 
     private function normalizeFacilities(?string $raw): ?string

@@ -28,11 +28,17 @@ class AdminDashboardController extends Controller
             'townhouse' => 0,
         ];
 
+        $propertyCategoryLookup = [];
+
         foreach ($properties as $property) {
-            $category = strtolower((string) $property->kategori);
+            $propertyId = (int) $property->id_perumahan;
+            $category = $this->normalizePropertyCategory((string) $property->kategori);
+
             if (array_key_exists($category, $propertyCountByCategory)) {
                 $propertyCountByCategory[$category]++;
             }
+
+            $propertyCategoryLookup[$propertyId] = $category;
         }
 
         $propertyStatusByProperty = [];
@@ -98,6 +104,7 @@ class AdminDashboardController extends Controller
 
         $propertyStatusItems = array_values(array_map(function ($item) {
             unset($item['has_unit_data']);
+
             return $this->appendUnitStatusAliases($item);
         }, $propertyStatusByProperty));
 
@@ -294,6 +301,7 @@ class AdminDashboardController extends Controller
                 'id' => $item['id'],
                 'name' => $item['name'],
             ], $propertyStatusItems),
+            'property_category_lookup' => $propertyCategoryLookup,
             'property_status_by_property' => $propertyStatusItems,
             'recent_bookings' => $recentBookings,
             'recent_activities' => $recentActivities,
@@ -445,6 +453,7 @@ class AdminDashboardController extends Controller
 
         $unitByPropertyItems = array_values(array_map(function (array $item) {
             unset($item['has_unit_data'], $item['fallback_total_unit'], $item['fallback_tersedia']);
+
             return $this->appendUnitStatusAliases($item);
         }, $unitByProperty));
 

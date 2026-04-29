@@ -3,7 +3,9 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import PasswordChecklist from '../components/auth/PasswordChecklist';
 import { apiJson } from '../lib/api';
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from '../lib/password';
 
 export default function ResetPassword() {
     const navigate = useNavigate();
@@ -21,6 +23,18 @@ export default function ResetPassword() {
         event.preventDefault();
         setIsLoading(true);
         setError('');
+
+        if (!isStrongPassword(password)) {
+            setError(PASSWORD_POLICY_MESSAGE);
+            setIsLoading(false);
+            return;
+        }
+
+        if (passwordConfirmation !== password) {
+            setError('Konfirmasi password tidak sama.');
+            setIsLoading(false);
+            return;
+        }
 
         try {
             const data = await apiJson('/auth/reset-password', {
@@ -76,13 +90,14 @@ export default function ResetPassword() {
                                 <Input
                                     label="Password Baru"
                                     type="password"
-                                    placeholder="Minimal 8 karakter"
+                                    placeholder="Minimal 8 karakter, huruf besar, huruf kecil, angka, dan simbol"
                                     value={password}
                                     onChange={(event) => setPassword(event.target.value)}
                                     required
                                     minLength={8}
                                     autoComplete="new-password"
                                 />
+                                <PasswordChecklist password={password} />
                                 <Input
                                     label="Konfirmasi Password"
                                     type="password"

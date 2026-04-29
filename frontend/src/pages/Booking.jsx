@@ -236,12 +236,12 @@ export default function Booking() {
         : normalizedCategory === 'komersil'
             ? 5000000
             : null;
-    const bookingSectionClassName = 'overflow-hidden rounded-[28px] border border-slate-200 bg-[#fbfcfe]';
-    const bookingSectionHeaderClassName = 'flex flex-col gap-4 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6';
-    const bookingSectionTitleClassName = 'flex items-start gap-4';
-    const bookingSectionStepClassName = 'flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-200 text-base font-semibold text-slate-700';
-    const bookingSectionContentClassName = 'border-t border-slate-200 px-5 py-5 md:px-6 md:py-6';
-    const bookingSectionPillClassName = 'inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700';
+    const bookingSectionClassName = 'overflow-hidden rounded-[24px] border border-slate-200 bg-[#fbfcfe] sm:rounded-[28px]';
+    const bookingSectionHeaderClassName = 'flex flex-col gap-4 px-4 py-4 sm:px-5 sm:py-5 md:flex-row md:items-center md:justify-between md:px-6';
+    const bookingSectionTitleClassName = 'flex min-w-0 items-start gap-3 sm:gap-4';
+    const bookingSectionStepClassName = 'flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-700 sm:h-11 sm:w-11 sm:text-base';
+    const bookingSectionContentClassName = 'border-t border-slate-200 px-4 py-4 sm:px-5 sm:py-5 md:px-6 md:py-6';
+    const bookingSectionPillClassName = 'inline-flex items-center rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 sm:px-4 sm:text-sm';
     const basePrice = Number(property?.price) || 0;
     const promoPricing = calculatePromoPricing(promos, property?.id, basePrice);
     const finalPrice = Math.max(0, basePrice - promoPricing.discount);
@@ -609,19 +609,19 @@ export default function Booking() {
                                         <button
                                             type="button"
                                             onClick={() => setShowTerms((prev) => !prev)}
-                                            className="flex w-full items-center justify-between gap-4 text-left"
+                                            className="flex w-full flex-col items-stretch gap-4 text-left sm:flex-row sm:items-center sm:justify-between"
                                             aria-expanded={showTerms}
                                         >
                                             <div className={bookingSectionTitleClassName}>
                                                 <span className={bookingSectionStepClassName}>3</span>
-                                                <div>
-                                                    <h3 className="font-bold text-xl text-gray-900">Syarat dan Ketentuan Booking</h3>
-                                                    <p className="text-sm text-slate-500">
+                                                <div className="min-w-0">
+                                                    <h3 className="text-lg font-bold leading-snug text-gray-900 sm:text-xl">Syarat dan Ketentuan Booking</h3>
+                                                    <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
                                                         Klik untuk {showTerms ? 'menyembunyikan' : 'menampilkan'} detail syarat booking.
                                                     </p>
                                                 </div>
                                             </div>
-                                            <span className={`${bookingSectionPillClassName} gap-2`}>
+                                            <span className={`${bookingSectionPillClassName} w-fit gap-2 self-start sm:self-auto`}>
                                                 {showTerms ? 'Sembunyikan' : 'Tampilkan'}
                                                 {showTerms ? <FaChevronUp className="text-xs" /> : <FaChevronDown className="text-xs" />}
                                             </span>
@@ -641,7 +641,7 @@ export default function Booking() {
                                                     )}
                                                 </div>
 
-                                                <ol className="list-decimal space-y-3 pl-5 text-sm leading-6 text-slate-700">
+                                                <ol className="list-decimal space-y-3 pl-5 text-[13px] leading-6 text-slate-700 sm:text-sm">
                                                     <li className="text-justify">
                                                         Konsumen yang melakukan booking pada perumahan subsidi diwajibkan membayar sebesar Rp2.000.000
                                                         (dua juta rupiah) sebagai Uang Tanda Jadi (UTJ) atau booking fee. Pembayaran ini merupakan bukti
@@ -671,8 +671,8 @@ export default function Booking() {
                                             </div>
                                         )}
 
-                                        <div className="border-t border-slate-200 px-5 py-4 md:px-6">
-                                            <label className="flex items-start gap-3 cursor-pointer">
+                                        <div className="border-t border-slate-200 px-4 py-4 sm:px-5 md:px-6">
+                                            <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white px-3.5 py-3.5 transition-colors hover:bg-slate-50 sm:px-4">
                                                 <input
                                                     type="checkbox"
                                                     checked={hasAgreedToTerms}
@@ -680,9 +680,9 @@ export default function Booking() {
                                                         setFormError('');
                                                         setHasAgreedToTerms(e.target.checked);
                                                     }}
-                                                    className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                                                 />
-                                                <span className="text-sm leading-6 text-slate-700">
+                                                <span className="min-w-0 flex-1 text-[13px] leading-5 text-slate-700 sm:text-sm sm:leading-6">
                                                     Saya telah membaca dan menyetujui seluruh syarat dan ketentuan booking yang berlaku.
                                                 </span>
                                             </label>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     FaCheck,
@@ -84,6 +84,10 @@ const getEventBadgeVariant = (event) => {
     return 'secondary';
 };
 
+const getStatusFilterLabel = (value) => (
+    STATUS_FILTERS.find((item) => item.key === value)?.label || 'Semua Status'
+);
+
 export default function WhatsappLogManagement() {
     const navigate = useNavigate();
     const [logs, setLogs] = useState([]);
@@ -166,14 +170,10 @@ export default function WhatsappLogManagement() {
         }
     }, [eventFilter, eventOptions]);
 
-    const getStatusFilterLabel = (value) => (
-        STATUS_FILTERS.find((item) => item.key === value)?.label || 'Semua Status'
-    );
-
-    const getEventFilterLabel = (value) => {
+    const getEventFilterLabel = useCallback((value) => {
         if (value === 'all') return 'Semua Event';
         return eventOptions.find((item) => item.key === value)?.label || 'Semua Event';
-    };
+    }, [eventOptions]);
 
     const filteredLogs = useMemo(() => {
         const query = search.trim().toLowerCase();
@@ -267,7 +267,7 @@ export default function WhatsappLogManagement() {
         if (activeLabels.length === 0) return 'All';
         if (activeLabels.length === 1) return activeLabels[0];
         return `${activeLabels.length} Filter`;
-    }, [statusFilter, eventFilter, eventOptions]);
+    }, [statusFilter, eventFilter, getEventFilterLabel]);
 
     const hasActiveFilter = statusFilter !== 'all' || eventFilter !== 'all';
 

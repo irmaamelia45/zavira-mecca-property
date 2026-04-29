@@ -4,8 +4,10 @@ import { FaArrowLeft, FaSave } from 'react-icons/fa';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { Card, CardContent } from '../../components/ui/Card';
+import PasswordChecklist from '../../components/auth/PasswordChecklist';
 import { apiJson } from '../../lib/api';
 import { authHeaders, getUserRole } from '../../lib/auth';
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from '../../lib/password';
 import { formatPhoneForDisplay, normalizePhone } from '../../lib/phone';
 
 const initialAdminForm = {
@@ -44,6 +46,18 @@ export default function AddAdminUser() {
 
         setSavingAdmin(true);
         setError('');
+
+        if (!isStrongPassword(adminForm.password)) {
+            setError(PASSWORD_POLICY_MESSAGE);
+            setSavingAdmin(false);
+            return;
+        }
+
+        if (adminForm.password_confirmation !== adminForm.password) {
+            setError('Konfirmasi password tidak sama.');
+            setSavingAdmin(false);
+            return;
+        }
 
         try {
             const data = await apiJson('/admin/users/admins', {
@@ -153,14 +167,18 @@ export default function AddAdminUser() {
                                     onChange={(e) => updateAdminField('alamat', e.target.value)}
                                     placeholder="Alamat admin perumahan"
                                 />
-                                <Input
-                                    label="Password"
-                                    type="password"
-                                    value={adminForm.password}
-                                    onChange={(e) => updateAdminField('password', e.target.value)}
-                                    placeholder="Minimal 8 karakter"
-                                    required
-                                />
+                                <div className="space-y-2">
+                                    <Input
+                                        label="Password"
+                                        type="password"
+                                        value={adminForm.password}
+                                        onChange={(e) => updateAdminField('password', e.target.value)}
+                                        placeholder="Minimal 8 karakter, huruf besar, huruf kecil, angka, dan simbol"
+                                        minLength={8}
+                                        required
+                                    />
+                                    <PasswordChecklist password={adminForm.password} />
+                                </div>
                                 <Input
                                     label="Konfirmasi Password"
                                     type="password"

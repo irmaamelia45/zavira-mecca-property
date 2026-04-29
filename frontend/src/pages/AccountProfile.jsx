@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent } from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
+import PasswordChecklist from '../components/auth/PasswordChecklist';
 import { FiArrowLeft } from 'react-icons/fi';
 import { apiJson } from '../lib/api';
 import { authHeaders, getStoredUser, saveAuth } from '../lib/auth';
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from '../lib/password';
 import { formatPhoneForDisplay, normalizePhone } from '../lib/phone';
 
 const initialProfile = {
@@ -100,6 +102,18 @@ export default function AccountProfile() {
         setMessage('');
         setError('');
 
+        if (!isStrongPassword(passwordForm.new_password)) {
+            setError(PASSWORD_POLICY_MESSAGE);
+            setSavingPassword(false);
+            return;
+        }
+
+        if (passwordForm.new_password_confirmation !== passwordForm.new_password) {
+            setError('Konfirmasi password baru tidak sama.');
+            setSavingPassword(false);
+            return;
+        }
+
         try {
             const data = await apiJson('/auth/password', {
                 method: 'PUT',
@@ -192,8 +206,11 @@ export default function AccountProfile() {
                             type="password"
                             value={passwordForm.new_password}
                             onChange={(e) => setPasswordForm((prev) => ({ ...prev, new_password: e.target.value }))}
+                            placeholder="Minimal 8 karakter, huruf besar, huruf kecil, angka, dan simbol"
+                            minLength={8}
                             required
                         />
+                        <PasswordChecklist password={passwordForm.new_password} />
                         <Input
                             label="Konfirmasi Password Baru"
                             type="password"

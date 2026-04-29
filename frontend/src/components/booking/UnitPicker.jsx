@@ -41,7 +41,6 @@ export default function UnitPicker({
                 <div>
                     <h3 className="text-base font-bold text-gray-900">{title}</h3>
                     <p className="text-xs text-gray-500">{helperText}</p>
-                    <p className="text-[11px] text-amber-700 mt-1">Unit indent tetap bisa dibooking dan akan menampilkan estimasi selesai saat dipilih.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
                     {Object.entries(STATUS_STYLE).map(([key, item]) => (

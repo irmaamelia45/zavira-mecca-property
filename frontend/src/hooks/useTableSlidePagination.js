@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 export default function useTableSlidePagination(rows = [], options = {}) {
     const {
@@ -6,19 +6,31 @@ export default function useTableSlidePagination(rows = [], options = {}) {
         resetDeps = [],
     } = options;
 
-    const safeRows = Array.isArray(rows) ? rows : [];
-    const [currentPage, setCurrentPage] = useState(0);
+    const safeRows = useMemo(() => (Array.isArray(rows) ? rows : []), [rows]);
+    const resetKey = JSON.stringify(Array.isArray(resetDeps) ? resetDeps : []);
+    const [pagination, setPagination] = useState(() => ({
+        page: 0,
+        resetKey,
+    }));
 
     const totalItems = safeRows.length;
     const totalPages = Math.max(1, Math.ceil(totalItems / rowsPerPage));
+    const requestedPage = pagination.resetKey === resetKey ? pagination.page : 0;
+    const currentPage = Math.min(requestedPage, totalPages - 1);
 
-    useEffect(() => {
-        setCurrentPage(0);
-    }, resetDeps);
+    const setCurrentPage = useCallback((value) => {
+        setPagination((prev) => {
+            const basePage = prev.resetKey === resetKey ? prev.page : 0;
+            const boundedBasePage = Math.min(basePage, totalPages - 1);
+            const nextPage = typeof value === 'function' ? value(boundedBasePage) : value;
+            const normalizedPage = Math.max(0, Math.min(Number(nextPage) || 0, totalPages - 1));
 
-    useEffect(() => {
-        setCurrentPage((prev) => Math.min(prev, totalPages - 1));
-    }, [totalPages]);
+            return {
+                page: normalizedPage,
+                resetKey,
+            };
+        });
+    }, [resetKey, totalPages]);
 
     const paginatedRows = useMemo(() => (
         safeRows.slice(

@@ -5,10 +5,16 @@ namespace Database\Seeders;
 use App\Models\Role;
 use App\Models\User;
 use App\Support\PhoneNumber;
+use App\Support\PasswordPolicy;
 use Illuminate\Database\Seeder;
+use RuntimeException;
 
 class SuperadminSeeder extends Seeder
 {
+    private const BLOCKED_PASSWORD_HASHES = [
+        '9a4aabf0e5cf71cae2cea646613ce7e2a5919fa758e56819704be25a3a2c1f0b',
+    ];
+
     /**
      * Seed a default superadmin account.
      */
@@ -19,11 +25,14 @@ class SuperadminSeeder extends Seeder
             ['deskripsi' => 'Administrator utama']
         );
 
-        $targetEmail = (string) env('SUPERADMIN_EMAIL', 'superadmin@zavira.test');
-        $targetPhone = PhoneNumber::normalizePhone((string) env('SUPERADMIN_PHONE', '6281234567890')) ?? '6281234567890';
-        $targetName = (string) env('SUPERADMIN_NAME', 'Super Admin');
-        $targetPassword = (string) env('SUPERADMIN_PASSWORD', 'ChangeMe123!');
-        $targetAddress = (string) env('SUPERADMIN_ADDRESS', 'Kantor Zavira Mecca');
+        $targetEmail = trim((string) config('superadmin.email', ''));
+        $targetPhone = PhoneNumber::normalizePhone((string) config('superadmin.phone', ''));
+        $targetName = trim((string) config('superadmin.name', 'Super Admin'));
+        $targetPassword = (string) config('superadmin.password', '');
+        $targetAddress = trim((string) config('superadmin.address', ''));
+
+        $this->assertSuperadminConfigIsSafe($targetEmail, $targetPhone, $targetPassword);
+        $this->assertSuperadminPhoneIsAvailable($targetEmail, $targetPhone);
 
         $user = User::query()->where('email', $targetEmail)->first();
 
@@ -41,41 +50,57 @@ class SuperadminSeeder extends Seeder
             return;
         }
 
-        $safePhone = $this->resolveUniquePhone($targetPhone);
-
         User::query()->create([
             'id_role' => $superadminRole->id_role,
             'nama' => $targetName,
             'email' => $targetEmail,
-            'no_hp' => $safePhone,
+            'no_hp' => $targetPhone,
             'password_hash' => $targetPassword,
             'alamat' => $targetAddress,
             'is_active' => true,
         ]);
     }
 
-    private function resolveUniquePhone(string $preferredPhone): string
+    private function assertSuperadminConfigIsSafe(string $email, ?string $phone, string $password): void
     {
-        $candidate = PhoneNumber::normalizePhone($preferredPhone) ?? '6281234567890';
+        $errors = [];
 
-        if (! User::query()->where('no_hp', $candidate)->exists()) {
-            return $candidate;
+        if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = 'SUPERADMIN_EMAIL wajib diisi dengan alamat email valid.';
         }
 
-        $digits = PhoneNumber::digitsOnly($candidate) ?: '6281234567890';
-        $prefix = substr($digits, 0, max(strlen($digits) - 3, 1));
-
-        for ($i = 1; $i <= 999; $i++) {
-            $candidate = PhoneNumber::normalizePhone($prefix . str_pad((string) $i, 3, '0', STR_PAD_LEFT));
-            if (! $candidate) {
-                continue;
-            }
-
-            if (! User::query()->where('no_hp', $candidate)->exists()) {
-                return $candidate;
-            }
+        if (! $phone) {
+            $errors[] = 'SUPERADMIN_PHONE wajib diisi dengan nomor HP valid.';
         }
 
-        return PhoneNumber::normalizePhone('081' . (string) random_int(10000000, 99999999)) ?? '6281234567890';
+        if (trim($password) === '') {
+            $errors[] = 'SUPERADMIN_PASSWORD wajib diisi.';
+        } elseif (in_array(hash('sha256', $password), self::BLOCKED_PASSWORD_HASHES, true)) {
+            $errors[] = 'SUPERADMIN_PASSWORD masih memakai nilai contoh/default dan tidak boleh digunakan.';
+        } elseif (! PasswordPolicy::isValid($password)) {
+            $errors[] = PasswordPolicy::message();
+        }
+
+        if (! empty($errors)) {
+            throw new RuntimeException(
+                'Seeder superadmin dibatalkan: '.implode(' ', $errors)
+                .' Atur SUPERADMIN_EMAIL, SUPERADMIN_PHONE, dan SUPERADMIN_PASSWORD di file .env sebelum menjalankan seeder.'
+            );
+        }
+    }
+
+    private function assertSuperadminPhoneIsAvailable(string $email, string $phone): void
+    {
+        $existingPhoneOwner = User::query()
+            ->where('no_hp', $phone)
+            ->where('email', '!=', $email)
+            ->first(['id_user', 'email']);
+
+        if ($existingPhoneOwner) {
+            throw new RuntimeException(
+                'Seeder superadmin dibatalkan: SUPERADMIN_PHONE sudah dipakai oleh akun lain.'
+                .' Gunakan nomor superadmin yang unik di file .env.'
+            );
+        }
     }
 }

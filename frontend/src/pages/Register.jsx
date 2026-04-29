@@ -2,9 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import AuthSplitLayout from '../components/auth/AuthSplitLayout';
+import PasswordChecklist from '../components/auth/PasswordChecklist';
 import { apiJson, ApiRequestError } from '../lib/api';
 import { saveAuth } from '../lib/auth';
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from '../lib/password';
 import { formatPhoneForDisplay, isValidPhone, normalizePhone } from '../lib/phone';
 
 export default function Register() {
@@ -68,8 +70,8 @@ export default function Register() {
 
         if (!password) {
             nextErrors.password = 'Password wajib diisi.';
-        } else if (password.length < 8) {
-            nextErrors.password = 'Password minimal 8 karakter.';
+        } else if (!isStrongPassword(password)) {
+            nextErrors.password = PASSWORD_POLICY_MESSAGE;
         }
 
         if (!confirmPassword) {
@@ -153,99 +155,107 @@ export default function Register() {
     };
 
     return (
-        <div className="container-custom py-20 flex justify-center items-center min-h-[60vh] animate-in fade-in zoom-in duration-300">
-            <Card className="w-full max-w-md shadow-xl border-gray-100 bg-white/80 backdrop-blur-sm">
-                <CardHeader className="text-center pb-2">
-                    <CardTitle className="text-2xl font-serif text-primary-900">Daftar Akun</CardTitle>
-                    <p className="text-gray-500 text-sm mt-1">Buat akun untuk mempermudah proses booking</p>
-                </CardHeader>
-                <CardContent className="p-8">
-                    <form onSubmit={handleRegister} className="space-y-4" autoComplete="off">
-                        <input type="text" name="fake_username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
-                        <input type="password" name="fake_password" autoComplete="new-password" className="hidden" tabIndex={-1} aria-hidden="true" />
-                        <Input
-                            label="Nama Lengkap"
-                            placeholder="Nama Anda"
-                            value={name}
-                            onChange={(e) => {
-                                setName(e.target.value);
-                                clearFieldError('nama');
-                            }}
-                            error={fieldErrors.nama}
-                            required
-                        />
-                        <Input
-                            label="Email"
-                            type="email"
-                            placeholder="nama@email.com"
-                            name="register_email"
-                            autoComplete="off"
-                            value={email}
-                            onChange={(e) => {
-                                setEmail(e.target.value);
-                                clearFieldError('email');
-                            }}
-                            ref={emailInputRef}
-                            error={fieldErrors.email}
-                            required
-                        />
-                        <Input
-                            label="No. WhatsApp"
-                            placeholder="08xxxxxxxxxx"
-                            value={phone}
-                            onChange={(e) => {
-                                setPhone(formatPhoneForDisplay(normalizePhone(e.target.value)));
-                                clearFieldError('no_hp');
-                            }}
-                            error={fieldErrors.no_hp}
-                            required
-                        />
-                        <Input
-                            label="Password"
-                            type="password"
-                            placeholder="Buat password"
-                            name="register_password"
-                            autoComplete="new-password"
-                            value={password}
-                            onChange={(e) => {
-                                setPassword(e.target.value);
-                                clearFieldError('password');
-                                clearFieldError('password_confirmation');
-                            }}
-                            ref={passwordInputRef}
-                            error={fieldErrors.password}
-                            required
-                        />
-                        <Input
-                            label="Konfirmasi Password"
-                            type="password"
-                            placeholder="Ulangi password"
-                            name="register_password_confirmation"
-                            autoComplete="new-password"
-                            value={confirmPassword}
-                            onChange={(e) => {
-                                setConfirmPassword(e.target.value);
-                                clearFieldError('password_confirmation');
-                            }}
-                            ref={confirmPasswordInputRef}
-                            error={fieldErrors.password_confirmation}
-                            required
-                        />
-                        {error && <p className="text-sm text-red-600">{error}</p>}
+        <AuthSplitLayout
+            title="Buat akun baru"
+            description="Daftar untuk mempercepat proses booking, melacak aktivitas akun, dan mengelola langkah berikutnya dari satu tempat."
+            panelTitle="Mulai dari portal yang bersih dan fokus."
+            panelDescription="Buat akun publik melalui form di sisi kanan. Jalur internal dan superadmin akan dipisahkan ke sistem lain."
+        >
+            <form onSubmit={handleRegister} className="space-y-4" autoComplete="off">
+                <input type="text" name="fake_username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
+                <input type="password" name="fake_password" autoComplete="new-password" className="hidden" tabIndex={-1} aria-hidden="true" />
+                <Input
+                    label="Nama Lengkap"
+                    placeholder="Nama Anda"
+                    value={name}
+                    onChange={(e) => {
+                        setName(e.target.value);
+                        clearFieldError('nama');
+                    }}
+                    error={fieldErrors.nama}
+                    required
+                    className="h-12 rounded-xl border-slate-200 bg-white/90 px-4 shadow-none"
+                />
+                <Input
+                    label="Email"
+                    type="email"
+                    placeholder="nama@email.com"
+                    name="register_email"
+                    autoComplete="off"
+                    value={email}
+                    onChange={(e) => {
+                        setEmail(e.target.value);
+                        clearFieldError('email');
+                    }}
+                    ref={emailInputRef}
+                    error={fieldErrors.email}
+                    required
+                    className="h-12 rounded-xl border-slate-200 bg-white/90 px-4 shadow-none"
+                />
+                <Input
+                    label="No. WhatsApp"
+                    placeholder="08xxxxxxxxxx"
+                    value={phone}
+                    onChange={(e) => {
+                        setPhone(formatPhoneForDisplay(normalizePhone(e.target.value)));
+                        clearFieldError('no_hp');
+                    }}
+                    error={fieldErrors.no_hp}
+                    required
+                    className="h-12 rounded-xl border-slate-200 bg-white/90 px-4 shadow-none"
+                />
+                <Input
+                    label="Password"
+                    type="password"
+                    placeholder="Minimal 8 karakter, huruf besar, huruf kecil, angka, dan simbol"
+                    name="register_password"
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => {
+                        setPassword(e.target.value);
+                        clearFieldError('password');
+                        clearFieldError('password_confirmation');
+                    }}
+                    ref={passwordInputRef}
+                    error={fieldErrors.password}
+                    minLength={8}
+                    required
+                    className="h-12 rounded-xl border-slate-200 bg-white/90 px-4 shadow-none"
+                />
+                <PasswordChecklist password={password} />
+                <Input
+                    label="Konfirmasi Password"
+                    type="password"
+                    placeholder="Ulangi password"
+                    name="register_password_confirmation"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        clearFieldError('password_confirmation');
+                    }}
+                    ref={confirmPasswordInputRef}
+                    error={fieldErrors.password_confirmation}
+                    required
+                    className="h-12 rounded-xl border-slate-200 bg-white/90 px-4 shadow-none"
+                />
+                {error && <p className="text-sm text-red-600">{error}</p>}
 
-                        <Button type="submit" className="w-full shadow-lg shadow-primary-500/20" isLoading={isLoading}>
-                            Daftar
-                        </Button>
+                <Button
+                    type="submit"
+                    className="h-12 w-full rounded-xl shadow-[0_16px_32px_-18px_rgba(47,73,127,0.7)]"
+                    isLoading={isLoading}
+                >
+                    Daftar
+                </Button>
 
-                        <p className="text-center text-sm text-gray-500">
-                            Sudah punya akun?{' '}
-                            <Link to="/auth/login" className="text-primary-600 hover:text-primary-700 font-medium">
-                                Masuk
-                            </Link>
-                        </p>
-                    </form>
-                </CardContent>
-            </Card>
-        </div>
+                <p className="text-center text-sm text-gray-500">
+                    Sudah punya akun?{' '}
+                    <Link to="/auth/login" className="text-primary-600 hover:text-primary-700 font-medium">
+                        Masuk
+                    </Link>
+                </p>
+            </form>
+        </AuthSplitLayout>
     );
 }

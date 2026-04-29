@@ -5,14 +5,16 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
+use App\Rules\StrongPassword;
 use App\Support\PhoneNumber;
+use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
 {
     private const GMAIL_RULE = 'regex:/^[A-Za-z0-9._%+-]+@gmail\\.com$/i';
+
     private const PHONE_RULE = 'regex:/^628[0-9]{7,13}$/';
 
     public function register(Request $request)
@@ -25,7 +27,7 @@ class AuthController extends Controller
             'nama' => 'required|string|max:100',
             'email' => ['required', 'email', 'max:120', self::GMAIL_RULE, 'unique:user,email'],
             'no_hp' => ['required', 'string', 'min:10', 'max:20', self::PHONE_RULE, 'unique:user,no_hp'],
-            'password' => ['required', 'confirmed', Password::min(8)],
+            'password' => ['required', 'confirmed', new StrongPassword],
             'alamat' => 'nullable|string|max:255',
             'device_name' => 'nullable|string|max:100',
         ], [
@@ -52,7 +54,7 @@ class AuthController extends Controller
         $newToken = $user->createToken(
             $validated['device_name'] ?? 'web',
             ['*'],
-            now()->addDays(30)
+            $this->tokenExpirationAt()
         );
 
         return response()->json([
@@ -84,7 +86,7 @@ class AuthController extends Controller
         $newToken = $user->createToken(
             $validated['device_name'] ?? 'web',
             ['*'],
-            now()->addDays(30)
+            $this->tokenExpirationAt()
         );
 
         return response()->json([
@@ -142,7 +144,7 @@ class AuthController extends Controller
 
         $validated = $request->validate([
             'current_password' => 'required|string',
-            'new_password' => ['required', 'confirmed', Password::min(8)],
+            'new_password' => ['required', 'confirmed', new StrongPassword],
         ]);
 
         if (! Hash::check($validated['current_password'], $user->password_hash)) {
@@ -191,5 +193,12 @@ class AuthController extends Controller
         }
 
         return PhoneNumber::digitsOnly($raw);
+    }
+
+    private function tokenExpirationAt(): CarbonInterface
+    {
+        $minutes = max(1, (int) config('sanctum.expiration', 60));
+
+        return now()->addMinutes($minutes);
     }
 }

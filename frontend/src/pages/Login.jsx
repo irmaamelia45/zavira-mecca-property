@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import AuthSplitLayout from '../components/auth/AuthSplitLayout';
 import { apiJson } from '../lib/api';
 import { clearAuth, saveAuth } from '../lib/auth';
 
@@ -76,92 +76,82 @@ export default function Login() {
     };
 
     return (
-        <div className="container-custom py-20 min-h-[60vh] flex items-center justify-center animate-in fade-in zoom-in duration-300">
-            <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                <Card className="w-full shadow-xl border-gray-100 bg-white/80 backdrop-blur-sm">
-                    <CardHeader className="text-center pb-2">
-                        <CardTitle className="text-2xl font-serif text-primary-900">Selamat Datang</CardTitle>
-                        <p className="text-gray-500 text-sm mt-1">Masuk untuk melanjutkan booking</p>
-                    </CardHeader>
-                    <CardContent className="p-8">
-                        <form onSubmit={handleLogin} className="space-y-4" autoComplete="off">
-                            <input type="text" name="fake_username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
-                            <input type="password" name="fake_password" autoComplete="new-password" className="hidden" tabIndex={-1} aria-hidden="true" />
-                            <Input
-                                label="Email"
-                                type="email"
-                                placeholder="nama@email.com"
-                                name="login_email"
-                                autoComplete="off"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                ref={emailInputRef}
-                                required
-                            />
-                            <Input
-                                label="Password"
-                                type="password"
-                                placeholder="********"
-                                name="login_password"
-                                autoComplete="new-password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                ref={passwordInputRef}
-                                required
-                            />
-                            {successMessage && <p className="text-sm text-green-700">{successMessage}</p>}
-                            {error && <p className="text-sm text-red-600">{error}</p>}
+        <AuthSplitLayout
+            title="Masuk ke akun Anda"
+            description="Gunakan email dan password yang telah terdaftar untuk masuk ke portal pemasaran perumahan Zavira Mecca Property."
+            panelDescription="Akses informasi perumahan, lakukan booking unit, dan pantau proses pengajuan Anda dengan lebih mudah dalam satu sistem."
+        >
+            <form onSubmit={handleLogin} className="space-y-5" autoComplete="off">
+                <input type="text" name="fake_username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
+                <input type="password" name="fake_password" autoComplete="new-password" className="hidden" tabIndex={-1} aria-hidden="true" />
 
-                            <div className="flex items-center justify-between text-sm">
-                                <label className="flex items-center text-gray-600 cursor-pointer">
-                                    <input type="checkbox" className="mr-2 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-                                    Ingat saya
-                                </label>
-                                <Link to="/auth/forgot-password" className="text-primary-600 hover:text-primary-700 font-medium">
-                                    Lupa Password?
-                                </Link>
-                            </div>
+                <Input
+                    label="Email"
+                    type="email"
+                    placeholder="nama@email.com"
+                    name="login_email"
+                    autoComplete="off"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    ref={emailInputRef}
+                    required
+                    className="h-12 rounded-xl border-slate-200 bg-white/90 px-4 shadow-none"
+                />
+                <Input
+                    label="Password"
+                    type="password"
+                    placeholder="Masukkan password"
+                    name="login_password"
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    ref={passwordInputRef}
+                    required
+                    className="h-12 rounded-xl border-slate-200 bg-white/90 px-4 shadow-none"
+                />
 
-                            <Button type="submit" className="w-full shadow-lg shadow-primary-500/20" isLoading={isLoading}>
-                                Masuk
-                            </Button>
-
-                            <div className="relative my-6 text-center text-sm">
-                                <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-gray-200"></span></div>
-                                <span className="relative bg-white px-2 text-gray-500">Atau</span>
-                            </div>
-
-                            <Link to="/auth/register" className="block">
-                                <Button variant="outline" type="button" className="w-full">
-                                    Daftar Akun Baru
-                                </Button>
-                            </Link>
-                        </form>
-                    </CardContent>
-                </Card>
-
-                <div className="rounded-lg border border-gray-200 bg-white/70 p-4 md:sticky md:top-24">
-                    <p className="text-sm font-semibold text-gray-800">Akses Khusus</p>
-                    <div className="mt-3 space-y-3 text-sm">
-                        <div>
-                            <a href="#" className="font-medium text-primary-700 underline hover:text-primary-800">
-                                Login Internal
-                            </a>
-                            <p className="mt-1 text-gray-600">
-                                Akses khusus untuk tim internal operasional.
-                            </p>
-                        </div>
-                        <div>
-                            <a href="#" className="font-medium text-primary-700 underline hover:text-primary-800">
-                                Login sebagai superadmin
-                            </a>
-                            <p className="mt-1 text-gray-600">
-                                Akses dashboard superadmin pada sistem internal terpisah.
-                            </p>
-                        </div>
+                {successMessage && (
+                    <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                        {successMessage}
                     </div>
+                )}
+                {error && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                        {error}
+                    </div>
+                )}
+
+                <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                    <label className="flex items-center gap-3 text-slate-600">
+                        <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <span>Ingat saya</span>
+                    </label>
+                    <Link to="/auth/forgot-password" className="font-medium text-primary-600 transition-colors hover:text-primary-700">
+                        Lupa Password?
+                    </Link>
                 </div>
-            </div>
-        </div>
+
+                <Button
+                    type="submit"
+                    className="h-12 w-full rounded-xl shadow-[0_16px_32px_-18px_rgba(47,73,127,0.7)]"
+                    isLoading={isLoading}
+                >
+                    Masuk
+                </Button>
+
+                <Link to="/auth/register" className="block">
+                    <Button
+                        variant="outline"
+                        type="button"
+                        className="h-12 w-full rounded-xl border-slate-300 bg-white text-primary-800 hover:bg-slate-50"
+                    >
+                        Daftar Akun Baru
+                    </Button>
+                </Link>
+            </form>
+        </AuthSplitLayout>
     );
 }

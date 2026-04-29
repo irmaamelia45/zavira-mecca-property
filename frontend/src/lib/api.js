@@ -1,3 +1,5 @@
+import { clearAuth } from './auth';
+
 const DEFAULT_API_PATH = '/api';
 const DEFAULT_NETWORK_ERROR_MESSAGE = 'Tidak dapat terhubung ke server.';
 
@@ -93,6 +95,23 @@ const joinUrl = (base, path) => {
     return `${stripTrailingSlash(base)}${normalizedPath}`;
 };
 
+const buildRequestHeaders = (headers = {}) => ({
+    Accept: 'application/json',
+    ...headers,
+});
+
+const isAuthEndpoint = (path = '') => normalizeApiPath(path).startsWith('/auth/');
+
+const handleUnauthorizedResponse = (path = '') => {
+    if (isAuthEndpoint(path) || typeof window === 'undefined') return;
+
+    clearAuth();
+
+    if (window.location.pathname !== '/auth/login') {
+        window.location.assign('/auth/login');
+    }
+};
+
 const readJsonSafely = async (response) => {
     try {
         const text = await response.text();
@@ -101,6 +120,23 @@ const readJsonSafely = async (response) => {
     } catch {
         return null;
     }
+};
+
+const getFileNameFromContentDisposition = (value = '') => {
+    const normalized = String(value || '').trim();
+    if (!normalized) return '';
+
+    const utf8Match = normalized.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+    if (utf8Match?.[1]) {
+        try {
+            return decodeURIComponent(utf8Match[1]).trim();
+        } catch {
+            return utf8Match[1].trim();
+        }
+    }
+
+    const plainMatch = normalized.match(/filename\s*=\s*"([^"]+)"/i) || normalized.match(/filename\s*=\s*([^;]+)/i);
+    return plainMatch?.[1] ? plainMatch[1].trim() : '';
 };
 
 const isGenericValidationMessage = (message = '') => {
@@ -163,7 +199,14 @@ export const resolveAssetUrl = (path = '') => {
     return joinUrl(API_CONFIG.assetBase, normalized);
 };
 
-export const apiFetch = (path, options = {}) => fetch(buildApiUrl(path), options);
+export const apiFetch = (path, options = {}) => {
+    const { headers, ...requestOptions } = options;
+
+    return fetch(buildApiUrl(path), {
+        ...requestOptions,
+        headers: buildRequestHeaders(headers),
+    });
+};
 
 export const apiJson = async (path, options = {}) => {
     const {
@@ -187,6 +230,10 @@ export const apiJson = async (path, options = {}) => {
     const data = await readJsonSafely(response);
 
     if (!response.ok) {
+        if (response.status === 401) {
+            handleUnauthorizedResponse(path);
+        }
+
         throw new ApiRequestError(
             getApiErrorMessage(data, defaultErrorMessage || `Request gagal (${response.status}).`),
             {
@@ -198,4 +245,69 @@ export const apiJson = async (path, options = {}) => {
     }
 
     return data;
+};
+
+export const apiBlob = async (path, options = {}) => {
+    const {
+        defaultErrorMessage = '',
+        ...fetchOptions
+    } = options;
+
+    let response;
+    try {
+        response = await apiFetch(path, fetchOptions);
+    } catch (error) {
+        throw new ApiRequestError(
+            defaultErrorMessage || error?.message || DEFAULT_NETWORK_ERROR_MESSAGE,
+            {
+                cause: error,
+                url: buildApiUrl(path),
+            }
+        );
+    }
+
+    if (!response.ok) {
+        const data = await readJsonSafely(response);
+        if (response.status === 401) {
+            handleUnauthorizedResponse(path);
+        }
+
+        throw new ApiRequestError(
+            getApiErrorMessage(data, defaultErrorMessage || `Request gagal (${response.status}).`),
+            {
+                status: response.status,
+                data,
+                url: response.url,
+            }
+        );
+    }
+
+    const blob = await response.blob();
+    const filename = getFileNameFromContentDisposition(response.headers.get('Content-Disposition'));
+
+    return {
+        blob,
+        filename,
+    };
+};
+
+export const downloadApiFile = async (path, options = {}) => {
+    const {
+        fallbackFileName = 'download',
+        ...requestOptions
+    } = options;
+
+    const { blob, filename } = await apiBlob(path, requestOptions);
+    const objectUrl = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = filename || fallbackFileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1000);
+
+    return {
+        filename: filename || fallbackFileName,
+    };
 };

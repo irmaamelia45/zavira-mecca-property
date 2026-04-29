@@ -55,9 +55,9 @@ class CompanyProfileController extends Controller
             'misi' => 'nullable|string',
             'penghargaan' => 'nullable|string',
             'struktur_organisasi' => 'nullable|string',
-            'logo' => 'nullable|image|max:2048',
-            'awards_images.*' => 'nullable|image|max:2048',
-            'team_images.*' => 'nullable|image|max:2048',
+            'logo' => 'nullable|file|mimes:jpg,jpeg,png,webp|mimetypes:image/jpeg,image/png,image/webp|max:2048',
+            'awards_images.*' => 'nullable|file|mimes:jpg,jpeg,png,webp|mimetypes:image/jpeg,image/png,image/webp|max:2048',
+            'team_images.*' => 'nullable|file|mimes:jpg,jpeg,png,webp|mimetypes:image/jpeg,image/png,image/webp|max:2048',
         ], [
             'whatsapp.regex' => 'Nomor WhatsApp marketing tidak valid. Gunakan format 08xxxxxxxxxx.',
         ]);
@@ -176,7 +176,7 @@ class CompanyProfileController extends Controller
 
     private function storePublicFile($file, string $folder): string
     {
-        $extension = $file->getClientOriginalExtension() ?: 'jpg';
+        $extension = $this->extensionFromMimeType($file);
         $filename = Str::uuid()->toString().'.'.$extension;
         $path = public_path('uploads/'.$folder);
 
@@ -187,5 +187,14 @@ class CompanyProfileController extends Controller
         $file->move($path, $filename);
 
         return '/uploads/'.$folder.'/'.$filename;
+    }
+
+    private function extensionFromMimeType($file): string
+    {
+        return match ($file->getMimeType()) {
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            default => 'jpg',
+        };
     }
 }

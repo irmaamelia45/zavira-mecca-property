@@ -1,41 +1,44 @@
 <?php
 
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\Auth\NewPasswordController;
-use App\Http\Controllers\Api\Auth\PasswordResetLinkController;
-use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AdminUserController;
+use App\Http\Controllers\Api\Auth\NewPasswordController;
+use App\Http\Controllers\Api\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\BookingDocumentController;
 use App\Http\Controllers\Api\CompanyProfileController;
 use App\Http\Controllers\Api\KprInfoController;
-use App\Http\Controllers\Api\MarketingDashboardController;
 use App\Http\Controllers\Api\MarketingBookingController;
+use App\Http\Controllers\Api\MarketingDashboardController;
 use App\Http\Controllers\Api\PerumahanController;
 use App\Http\Controllers\Api\PromoController;
 use App\Http\Controllers\Api\TemplateSuratController;
 use App\Http\Controllers\Api\WhatsappNotifLogController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/kpr-contents', [KprInfoController::class, 'index']);
-Route::get('/kpr-contents/{id}', [KprInfoController::class, 'show']);
+Route::middleware('throttle:public-read')->group(function () {
+    Route::get('/kpr-contents', [KprInfoController::class, 'index']);
+    Route::get('/kpr-contents/{id}', [KprInfoController::class, 'show']);
 
-Route::get('/company-profile', [CompanyProfileController::class, 'show']);
+    Route::get('/company-profile', [CompanyProfileController::class, 'show']);
 
-Route::get('/perumahan', [PerumahanController::class, 'indexPublic']);
-Route::get('/perumahan/{id}', [PerumahanController::class, 'showPublic']);
-Route::get('/perumahan/{id}/units', [PerumahanController::class, 'unitAvailability']);
+    Route::get('/perumahan', [PerumahanController::class, 'indexPublic']);
+    Route::get('/perumahan/{id}', [PerumahanController::class, 'showPublic']);
+    Route::get('/perumahan/{id}/units', [PerumahanController::class, 'unitAvailability']);
 
-Route::get('/promos', [PromoController::class, 'index']);
-Route::get('/promos/{id}', [PromoController::class, 'show']);
+    Route::get('/promos', [PromoController::class, 'index']);
+    Route::get('/promos/{id}', [PromoController::class, 'show']);
+});
 
 Route::prefix('auth')->group(function () {
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::middleware('throttle:auth-register')->post('/register', [AuthController::class, 'register']);
+    Route::middleware('throttle:auth-login')->post('/login', [AuthController::class, 'login']);
     Route::middleware(['guest', 'throttle:5,1'])->post('/forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
     Route::middleware(['guest', 'throttle:10,1'])->post('/reset-password', [NewPasswordController::class, 'store'])->name('password.update');
 });
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'active_user'])->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
@@ -43,7 +46,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/bookings/me', [BookingController::class, 'indexMine']);
     Route::get('/bookings/me/{id}', [BookingController::class, 'showMine']);
-    Route::post('/bookings', [BookingController::class, 'store']);
+    Route::middleware('throttle:booking-upload')->post('/bookings', [BookingController::class, 'store']);
+    Route::get('/bookings/me/{bookingId}/documents/{documentId}/download', [BookingDocumentController::class, 'downloadMine'])
+        ->name('bookings.documents.mine.download');
 
     Route::middleware('role:marketing')->group(function () {
         Route::get('/marketing/dashboard/summary', [MarketingDashboardController::class, 'summary']);
@@ -61,6 +66,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/bookings', [BookingController::class, 'indexAdmin']);
         Route::get('/admin/bookings/{id}', [BookingController::class, 'showAdmin']);
         Route::patch('/admin/bookings/{id}/status', [BookingController::class, 'updateStatusAdmin']);
+        Route::get('/admin/bookings/{bookingId}/documents/{documentId}/download', [BookingDocumentController::class, 'downloadAdmin'])
+            ->name('admin.bookings.documents.download');
         Route::get('/admin/whatsapp-logs', [WhatsappNotifLogController::class, 'index']);
         Route::get('/admin/whatsapp-logs/{id}', [WhatsappNotifLogController::class, 'show']);
 

@@ -6,7 +6,7 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { FiArrowLeft, FiCheckCircle, FiFileText, FiMapPin, FiSlash, FiUser, FiXCircle } from 'react-icons/fi';
 import { formatMoney } from '../../utils/promo';
 import { authHeaders } from '../../lib/auth';
-import { apiJson, resolveAssetUrl } from '../../lib/api';
+import { apiJson, downloadApiFile } from '../../lib/api';
 import { formatPhoneForDisplay } from '../../lib/phone';
 
 export default function BookingDetail() {
@@ -17,6 +17,7 @@ export default function BookingDetail() {
     const [error, setError] = useState('');
     const [updating, setUpdating] = useState(false);
     const [adminNote, setAdminNote] = useState('');
+    const [downloadingDocumentId, setDownloadingDocumentId] = useState(null);
 
     const fetchDetail = useCallback(async () => {
         setLoading(true);
@@ -137,6 +138,25 @@ export default function BookingDetail() {
             setError(err.message || 'Gagal menyimpan catatan admin.');
         } finally {
             setUpdating(false);
+        }
+    };
+
+    const handleDocumentDownload = async (document) => {
+        if (!document?.download_url) return;
+
+        setDownloadingDocumentId(document.id);
+        setError('');
+
+        try {
+            await downloadApiFile(document.download_url, {
+                headers: authHeaders(),
+                defaultErrorMessage: 'Gagal mengunduh dokumen.',
+                fallbackFileName: document.nama_file || 'dokumen-booking',
+            });
+        } catch (err) {
+            setError(err.message || 'Gagal mengunduh dokumen.');
+        } finally {
+            setDownloadingDocumentId(null);
         }
     };
 
@@ -334,16 +354,18 @@ export default function BookingDetail() {
                     ) : (
                         <div className="space-y-2">
                             {booking.documents.map((doc) => (
-                                <a
+                                <button
+                                    type="button"
                                     key={doc.id}
-                                    href={resolveAssetUrl(doc.path)}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="block rounded-md border border-gray-200 px-4 py-3 text-sm text-primary-700 hover:bg-gray-50"
+                                    onClick={() => handleDocumentDownload(doc)}
+                                    disabled={downloadingDocumentId === doc.id}
+                                    className="block w-full rounded-md border border-gray-200 px-4 py-3 text-left text-sm text-primary-700 hover:bg-gray-50 disabled:opacity-70"
                                 >
                                     <span className="block font-semibold text-gray-900">{doc.jenis_dokumen || 'Dokumen'}</span>
-                                    <span className="mt-1 block text-sm text-primary-700">{doc.nama_file}</span>
-                                </a>
+                                    <span className="mt-1 block text-sm text-primary-700">
+                                        {downloadingDocumentId === doc.id ? 'Mengunduh dokumen...' : doc.nama_file}
+                                    </span>
+                                </button>
                             ))}
                         </div>
                     )}

@@ -260,7 +260,7 @@ export default function AccountDashboard() {
             {error && <p className="text-sm text-red-600">{error}</p>}
 
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
-                <Card className="relative overflow-hidden border-none shadow-lg bg-gradient-to-br from-primary-700 to-primary-900 text-white xl:col-span-2">
+                <Card className="border-none shadow-lg bg-primary-900 text-white xl:col-span-2">
                     <CardContent className="p-6 md:p-7">
                         <div className="flex items-start justify-between gap-3">
                             <div>
@@ -284,8 +284,6 @@ export default function AccountDashboard() {
                                 {stats.favorit} favorit tersimpan
                             </span>
                         </div>
-                        <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/10" />
-                        <div className="pointer-events-none absolute -left-14 -bottom-14 h-36 w-36 rounded-full bg-white/10" />
                     </CardContent>
                 </Card>
 

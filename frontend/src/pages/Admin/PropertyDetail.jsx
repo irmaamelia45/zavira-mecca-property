@@ -25,6 +25,7 @@ import {
     Tooltip as RechartsTooltip,
     ResponsiveContainer,
 } from 'recharts';
+import AdminChartLegend from '../../components/admin/AdminChartLegend';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -260,15 +261,6 @@ export default function PropertyDetail() {
         maximumFractionDigits: 0,
     }).format(val || 0);
 
-    const formatDate = (value) => {
-        if (!value) return '-';
-        return new Date(value).toLocaleDateString('id-ID', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-        });
-    };
-
     const handleDelete = async () => {
         if (!property?.id) return;
         if (!window.confirm('Apakah Anda yakin ingin menghapus perumahan ini?')) {
@@ -439,23 +431,12 @@ export default function PropertyDetail() {
                                 <span className="text-3xl font-bold text-[#0b1e45]">{totalUnits}</span>
                             </div>
                         </div>
-                        <div className="mt-4 flex flex-wrap items-center gap-x-7 gap-y-3">
-                            {unitStatusData.map((item) => (
-                                <div key={item.name} className="inline-flex items-center gap-2.5">
-                                    <span
-                                        aria-hidden="true"
-                                        className="inline-block h-4 w-4 rounded-[3px] border-2 bg-transparent"
-                                        style={{ borderColor: item.color }}
-                                    />
-                                    <span className="text-[17px] font-semibold text-slate-800 leading-none">{item.name}</span>
-                                </div>
-                            ))}
-                        </div>
+                        <AdminChartLegend items={unitStatusData} />
                     </CardContent>
                 </Card>
                 <Card className="border-none shadow-md h-full">
                     <CardContent className="p-6 md:p-7 h-full flex flex-col">
-                        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-700 to-primary-900 px-5 py-5 text-white">
+                        <div className="rounded-2xl bg-primary-900 px-5 py-5 text-white">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
                                     <p className="text-primary-100 text-sm">Total Booking Perumahan</p>
@@ -478,8 +459,6 @@ export default function PropertyDetail() {
                                     {loadingBookings ? '...' : `${bookingSummary.rejected} booking ditolak`}
                                 </span>
                             </div>
-                            <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/10" />
-                            <div className="pointer-events-none absolute -left-14 -bottom-14 h-36 w-36 rounded-full bg-white/10" />
                         </div>
 
                         <div className="mt-5 flex-1">
