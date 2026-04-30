@@ -62,6 +62,61 @@ export const formatPromoPeriod = (startDate, endDate) => {
     return start || end || '-';
 };
 
+const parseReferenceDate = (referenceDate) => {
+    if (referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime())) {
+        return referenceDate;
+    }
+
+    if (typeof referenceDate === 'string') {
+        const parsed = new Date(referenceDate);
+        if (!Number.isNaN(parsed.getTime())) {
+            return parsed;
+        }
+    }
+
+    return new Date();
+};
+
+const parsePromoDate = (value) => {
+    if (!value) return null;
+
+    const normalizedValue = String(value).trim();
+    const dateOnlyMatch = normalizedValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+    if (dateOnlyMatch) {
+        const [, year, month, day] = dateOnlyMatch;
+        return new Date(Number(year), Number(month) - 1, Number(day));
+    }
+
+    const parsed = new Date(normalizedValue);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+};
+
+const parseActiveFlag = (value) => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value === 1;
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        return normalized === '1' || normalized === 'true' || normalized === 'aktif' || normalized === 'active';
+    }
+    return Boolean(value);
+};
+
+export const isPromoActive = (promo, referenceDate = new Date()) => {
+    const activeFlag = promo?.isActive ?? promo?.is_active;
+    if (!parseActiveFlag(activeFlag)) return false;
+
+    const safeDate = parseReferenceDate(referenceDate);
+    const today = new Date(safeDate.getFullYear(), safeDate.getMonth(), safeDate.getDate());
+    const start = parsePromoDate(promo?.startDate ?? promo?.tanggal_mulai);
+    const end = parsePromoDate(promo?.endDate ?? promo?.tanggal_selesai);
+
+    if (start && start > today) return false;
+    if (end && end < today) return false;
+    return true;
+};
+
 export const mapPromoFromApi = (promo) => {
     const discountType = promo?.tipe_promo === 'percent'
         ? 'percent'
@@ -95,7 +150,11 @@ export const mapPromoFromApi = (promo) => {
         details: promo?.deskripsi || '',
         startDate: promo?.tanggal_mulai || '',
         endDate: promo?.tanggal_selesai || '',
-        isActive: Boolean(promo?.is_active),
+        isActive: isPromoActive({
+            is_active: promo?.is_active,
+            tanggal_mulai: promo?.tanggal_mulai,
+            tanggal_selesai: promo?.tanggal_selesai,
+        }),
         discountType,
         discountValue,
         perumahanIds,
@@ -111,41 +170,6 @@ export const buildHighlight = (discountType, discountValue, category) => {
         return `Hemat ${formatMoney(discountValue || 0)}`;
     }
     return `Promo ${category}`;
-};
-
-const parseReferenceDate = (referenceDate) => {
-    if (referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime())) {
-        return referenceDate;
-    }
-
-    if (typeof referenceDate === 'string') {
-        const parsed = new Date(referenceDate);
-        if (!Number.isNaN(parsed.getTime())) {
-            return parsed;
-        }
-    }
-
-    return new Date();
-};
-
-const parsePromoDate = (value) => {
-    if (!value) return null;
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return null;
-    return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
-};
-
-export const isPromoActive = (promo, referenceDate = new Date()) => {
-    if (!promo?.isActive) return false;
-
-    const safeDate = parseReferenceDate(referenceDate);
-    const today = new Date(safeDate.getFullYear(), safeDate.getMonth(), safeDate.getDate());
-    const start = parsePromoDate(promo?.startDate);
-    const end = parsePromoDate(promo?.endDate);
-
-    if (start && start > today) return false;
-    if (end && end < today) return false;
-    return true;
 };
 
 export const getPromoPricing = (promos, propertyId, basePrice) => {

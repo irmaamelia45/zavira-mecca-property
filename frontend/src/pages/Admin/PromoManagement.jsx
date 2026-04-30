@@ -6,7 +6,7 @@ import { Card, CardContent } from '../../components/ui/Card';
 import TableSlidePagination from '../../components/admin/TableSlidePagination';
 import { FaPlus, FaSearch, FaSlidersH, FaTags, FaCheckCircle, FaPercent, FaMoneyBillWave, FaChevronDown, FaChevronUp, FaCheck } from 'react-icons/fa';
 import { apiJson } from '../../lib/api';
-import { formatPromoPeriod, formatMoney, normalizeApiListPayload } from '../../utils/promo';
+import { formatPromoPeriod, formatMoney, isPromoActive, normalizeApiListPayload } from '../../utils/promo';
 import { authHeaders } from '../../lib/auth';
 import useTableSlidePagination from '../../hooks/useTableSlidePagination';
 
@@ -68,6 +68,7 @@ export default function PromoManagement() {
             const mapped = normalizeApiListPayload(data).map((promo) => {
                 const typeKey = normalizePromoType(promo.tipe_promo);
                 const value = Number(promo.nilai_promo || 0);
+                const activeStatus = isPromoActive(promo);
 
                 return {
                     id: promo.id,
@@ -77,7 +78,7 @@ export default function PromoManagement() {
                     period: formatPromoPeriod(promo.tanggal_mulai, promo.tanggal_selesai),
                     startDate: promo.tanggal_mulai || null,
                     endDate: promo.tanggal_selesai || null,
-                    isActive: Boolean(promo.is_active),
+                    isActive: activeStatus,
                     promoType: typeKey,
                     promoTypeLabel: promoTypeLabel(typeKey),
                     promoValue: value,

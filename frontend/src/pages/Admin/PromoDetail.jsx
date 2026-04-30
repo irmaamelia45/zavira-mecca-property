@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { Card, CardContent } from '../../components/ui/Card';
-import { formatMoney, formatPromoPeriod } from '../../utils/promo';
+import { formatMoney, formatPromoPeriod, isPromoActive } from '../../utils/promo';
 import { authHeaders } from '../../lib/auth';
 import { apiJson } from '../../lib/api';
 import { FaArrowLeft, FaClock, FaEdit, FaHome, FaPercent, FaTag, FaTrash } from 'react-icons/fa';
@@ -83,7 +83,8 @@ export default function PromoDetailAdmin() {
         : promoType === 'amount'
             ? formatMoney(promoValue)
             : 'Tanpa potongan';
-    const statusLabel = promo?.is_active ? 'Aktif' : 'Nonaktif';
+    const isActive = isPromoActive(promo);
+    const statusLabel = isActive ? 'Aktif' : 'Nonaktif';
     const periodLabel = formatPromoPeriod(promo?.tanggal_mulai, promo?.tanggal_selesai);
 
     if (loading) {
@@ -143,7 +144,7 @@ export default function PromoDetailAdmin() {
                     </div>
 
                     <div className="flex flex-wrap gap-2 mt-4">
-                        <Badge className={promo?.is_active ? 'rounded-full px-3 py-1 border-emerald-200 bg-emerald-100 text-emerald-700' : 'rounded-full px-3 py-1 border-slate-200 bg-slate-100 text-slate-700'}>
+                        <Badge className={isActive ? 'rounded-full px-3 py-1 border-emerald-200 bg-emerald-100 text-emerald-700' : 'rounded-full px-3 py-1 border-slate-200 bg-slate-100 text-slate-700'}>
                             {statusLabel}
                         </Badge>
                         <Badge className="rounded-full px-3 py-1 border-primary-200 bg-primary-50 text-primary-700">

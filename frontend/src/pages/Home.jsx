@@ -4,7 +4,7 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import PromoCard from '../components/ui/PromoCard';
 import { FiMapPin, FiHome, FiDroplet, FiShield, FiFileText, FiUsers, FiTrendingUp, FiCheckCircle, FiCalendar, FiPhoneCall, FiArrowUpRight, FiAward, FiChevronLeft, FiChevronRight, FiSearch } from 'react-icons/fi';
-import bgPage from '../assets/bg_page.jpg';
+import bgPage from '../assets/bg_page.png';
 import { apiJson } from '../lib/api';
 import { mapPromoFromApi, getPromoPricing as calculatePromoPricing, isPromoActive, resolveImage } from '../utils/promo';
 

@@ -11,7 +11,7 @@ import {
     FiTrendingUp
 } from 'react-icons/fi';
 import Button from '../components/ui/Button';
-import bgPage from '../assets/bg_page.jpg';
+import bgPage from '../assets/bg_page.png';
 import { apiJson } from '../lib/api';
 
 const infoCards = [

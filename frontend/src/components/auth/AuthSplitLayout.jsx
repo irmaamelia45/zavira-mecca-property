@@ -1,7 +1,7 @@
 import React from 'react';
 import { FiArrowUpRight, FiLock, FiShield } from 'react-icons/fi';
 import logoProperty from '../../assets/logo_pt.png';
-import pageBackground from '../../assets/bg_page.jpg';
+import pageBackground from '../../assets/bg_page.png';
 
 const externalAccessButtons = [
     {

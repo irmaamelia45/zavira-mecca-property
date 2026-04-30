@@ -272,7 +272,7 @@ export default function AddProperty() {
                     </Button>
                     <div>
                         <h1 className="admin-page-title text-2xl font-bold text-primary-900">Tambah Perumahan Baru</h1>
-                        <p className="admin-page-subtitle text-gray-500 text-sm">Maksimal 4 foto. Data akan tampil di halaman user.</p>
+                        <p className="admin-page-subtitle text-gray-500 text-sm">Data akan tampil di halaman user.</p>
                     </div>
                 </div>
                 <div className="admin-page-head-actions flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
