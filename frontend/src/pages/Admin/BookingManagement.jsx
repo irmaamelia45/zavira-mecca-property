@@ -172,7 +172,7 @@ export default function BookingManagement() {
             key: 'approved',
             label: 'Disetujui',
             value: summary.approved,
-            desc: 'Booking yang approved',
+            desc: 'Booking yang disetujui',
             Icon: FaCheckCircle,
         },
         {

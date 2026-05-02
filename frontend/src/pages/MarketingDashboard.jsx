@@ -5,8 +5,10 @@ import { FiActivity, FiCheckCircle, FiClock, FiFlag, FiSearch, FiXCircle } from 
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { Card, CardContent } from '../components/ui/Card';
+import TableSlidePagination from '../components/admin/TableSlidePagination';
 import { apiJson } from '../lib/api';
 import { authHeaders, getStoredUser } from '../lib/auth';
+import useTableSlidePagination from '../hooks/useTableSlidePagination';
 
 const statusBadgeVariant = (status) => {
     const normalized = String(status || '').toLowerCase();
@@ -144,6 +146,25 @@ export default function MarketingDashboard() {
         }))
     ), [summary.status_breakdown]);
 
+    const latestBookings = useMemo(() => (
+        [...bookings].sort((a, b) => new Date(b?.date || 0).getTime() - new Date(a?.date || 0).getTime())
+    ), [bookings]);
+
+    const {
+        currentPage,
+        totalPages,
+        paginatedRows: paginatedBookings,
+        rangeStart,
+        rangeEnd,
+        canPrevious,
+        canNext,
+        goPrevious,
+        goNext,
+    } = useTableSlidePagination(latestBookings, {
+        rowsPerPage: 5,
+        resetDeps: [queryString, latestBookings.length],
+    });
+
     const formatDate = (value) => {
         if (!value) return '-';
         return new Date(value).toLocaleDateString('id-ID', {
@@ -175,7 +196,7 @@ export default function MarketingDashboard() {
                         <Button variant="outline" className="border-white text-white hover:bg-white/10">Daftar Booking</Button>
                     </Link>
                     <Link to="/akun/profil">
-                        <Button variant="outline" className="border-white text-white hover:bg-white/10">Profil User</Button>
+                        <Button variant="outline" className="border-white text-white hover:bg-white/10">Profil</Button>
                     </Link>
                 </div>
             </div>
@@ -321,7 +342,7 @@ export default function MarketingDashboard() {
                         <div>
                             <h2 className="text-xl font-bold text-gray-900">Daftar Booking Masuk</h2>
                             <p className="text-sm text-gray-500">
-                                Menampilkan {bookings.length} booking {refreshing ? '(memperbarui...)' : ''}
+                                Menampilkan 5 booking terbaru per halaman dari {bookings.length} booking {refreshing ? '(memperbarui...)' : ''}
                             </p>
                         </div>
                     </div>
@@ -346,7 +367,7 @@ export default function MarketingDashboard() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {bookings.map((booking) => (
+                                        {paginatedBookings.map((booking) => (
                                             <tr key={booking.id} className="border-b border-gray-100">
                                                 <td className="py-3 pr-4">
                                                     <p className="text-gray-900 font-medium">{booking.user?.name || '-'}</p>
@@ -365,7 +386,7 @@ export default function MarketingDashboard() {
                             </div>
 
                             <div className="md:hidden space-y-3">
-                                {bookings.map((booking) => (
+                                {paginatedBookings.map((booking) => (
                                     <div key={booking.id} className="rounded-xl border border-gray-200 bg-white p-4 space-y-2">
                                         <div className="flex items-start justify-between gap-3">
                                             <p className="font-semibold text-gray-900">{booking.user?.name || '-'}</p>
@@ -377,6 +398,19 @@ export default function MarketingDashboard() {
                                     </div>
                                 ))}
                             </div>
+
+                            <TableSlidePagination
+                                rangeStart={rangeStart}
+                                rangeEnd={rangeEnd}
+                                totalItems={latestBookings.length}
+                                totalPages={totalPages}
+                                currentPage={currentPage}
+                                itemLabel="booking"
+                                canPrevious={canPrevious}
+                                canNext={canNext}
+                                onPrevious={goPrevious}
+                                onNext={goNext}
+                            />
                         </>
                     )}
                 </CardContent>

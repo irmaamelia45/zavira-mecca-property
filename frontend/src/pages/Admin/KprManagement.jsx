@@ -152,7 +152,7 @@ export default function KprManagement() {
         <div className="admin-page space-y-6 animate-in fade-in duration-500">
             <div className="admin-page-head flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="admin-page-title text-2xl font-bold text-gray-900">Dashboard Admin - Kelola Informasi KPR</h1>
+                    <h1 className="admin-page-title text-2xl font-bold text-gray-900">Kelola Informasi KPR</h1>
                     <p className="admin-page-subtitle text-gray-500 text-sm">Tambah, edit, dan hapus konten KPR untuk ditampilkan ke user.</p>
                 </div>
                 <Button onClick={handleOpenForm} className="w-full sm:w-auto">

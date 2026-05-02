@@ -7,14 +7,16 @@ const externalAccessButtons = [
     {
         label: 'Login Internal',
         helper: 'Sistem internal',
-        status: 'Segera hadir',
+        status: 'PORTAL',
         icon: FiLock,
+        href: 'https://internal.zavirameccaproperty.com/admin/login',
     },
     {
         label: 'Login Superadmin',
         helper: 'Portal terpisah',
-        status: 'Segera hadir',
+        status: 'PORTAL',
         icon: FiShield,
+        href: 'https://zavirameccaproperty.com/login',
     },
 ];
 
@@ -59,9 +61,9 @@ function BrandPanel({ title, description, className = '' }) {
                         const Icon = item.icon;
 
                         return (
-                            <button
+                            <a
                                 key={item.label}
-                                type="button"
+                                href={item.href}
                                 className="group relative overflow-hidden rounded-2xl border border-white/18 bg-white/10 px-4 py-4 text-left text-white backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-white/28 hover:bg-white/14"
                             >
                                 <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(255,255,255,0.09),rgba(255,255,255,0))]" aria-hidden="true" />
@@ -82,16 +84,16 @@ function BrandPanel({ title, description, className = '' }) {
                                     </span>
                                 </div>
                                 <div className="relative mt-5 flex items-center gap-2 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-secondary-200">
-                                    <span>Placeholder</span>
+                                    <span>Buka Portal</span>
                                     <FiArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                                 </div>
-                            </button>
+                            </a>
                         );
                     })}
                 </div>
 
                 <p className="mt-6 max-w-sm text-xs leading-6 text-primary-100/68 lg:mt-auto lg:pt-10">
-                    Tombol akses internal dan superadmin akan diarahkan ke sistem terpisah pada tahap berikutnya.
+                    Pilih portal yang sesuai untuk masuk ke sistem internal atau superadmin.
                 </p>
             </div>
         </div>
